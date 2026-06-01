@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keyboard Sample Player</title>
+  <style>
+    :root {
+      --bg:          #121218;
+      --surface:     #1e1f2a;
+      --key-bg:      #2c2e3a;
+      --key-mapped:  #2e4f6e;
+      --key-border:  #4a7fa8;
+      --key-active:  #f0c450;
+      --active-text: #121218;
+      --text:        #ebebf0;
+      --subtext:     #9698a5;
+      --accent:      #4a7fa8;
+      --border:      #3a3c4a;
+      --green:       #4aaa60;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Menlo','Consolas','Monaco',monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 32px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ── Header ───────────────────────────────────────── */
+    header {
+      width: 100%;
+      max-width: 880px;
+      margin-bottom: 20px;
+    }
+    h1 { font-size: 20px; font-weight: 700; letter-spacing: .4px; margin-bottom: 4px; }
+    #subtitle { font-size: 12px; color: var(--subtext); min-height: 16px; }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 4px;
+      padding: 3px 9px;
+      font-size: 11px;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .badge.samples { background: var(--green); }
+
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ctrl-label { font-size: 11px; color: var(--subtext); min-width: 44px; }
+
+    button {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 11px;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background .12s;
+      white-space: nowrap;
+    }
+    button:hover  { background: var(--key-bg); }
+    button:active { background: var(--accent); color: #fff; }
+    .btn-sq { padding: 4px 10px; font-size: 16px; line-height: 1; }
+
+    .oct-display {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 14px;
+      min-width: 30px;
+      text-align: center;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 90px; height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px; height: 13px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 13px; height: 13px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+    }
+    #vol-label { font-size: 12px; color: var(--subtext); min-width: 30px; }
+
+    /* ── Keyboard ─────────────────────────────────────── */
+    #kb-scroll {
+      width: 100%;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    #keyboard {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: max-content;
+    }
+    .key-row {
+      display: flex;
+      gap: 5px;
+    }
+    .key-row:nth-child(1) { margin-left: 0;    }
+    .key-row:nth-child(2) { margin-left: 16px; }
+    .key-row:nth-child(3) { margin-left: 28px; }
+    .key-row:nth-child(4) { margin-left: 42px; }
+
+    .key {
+      width: 58px;
+      height: 58px;
+      border-radius: 8px;
+      background: var(--key-bg);
+      border: 1px solid transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 6px 7px 5px;
+      cursor: pointer;
+      transition: background .07s, border-color .07s, transform .07s;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .key.mapped {
+      background: var(--key-mapped);
+      border-color: var(--key-border);
+    }
+    .key.active {
+      background: var(--key-active) !important;
+      border-color: #c8a030 !important;
+      transform: scale(0.94);
+    }
+    .key.active .kl, .key.active .kn { color: var(--active-text) !important; }
+    .key.drag-over {
+      border-color: var(--green) !important;
+      background: #1e2e20 !important;
+    }
+
+    .kl { /* key letter */
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+    .kn { /* note/sample name */
+      font-size: 9.5px;
+      color: var(--subtext);
+      margin-top: auto;
+      line-height: 1.2;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .key.mapped .kn { color: #88b8d8; }
+
+    /* ── Status bar ───────────────────────────────────── */
+    .status-bar {
+      width: 100%;
+      max-width: 880px;
+      margin-top: 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 14px;
+      font-size: 12px;
+      color: var(--subtext);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    #status-msg { color: var(--text); }
+
+    .hints { display: flex; gap: 14px; flex-wrap: wrap; }
+    .hint  { display: flex; gap: 4px; align-items: center; }
+    kbd {
+      background: var(--key-bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-family: inherit;
+      font-size: 10px;
+    }
+
+    /* ── Drop overlay ─────────────────────────────────── */
+    #drop-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(74, 127, 168, 0.12);
+      border: 3px dashed var(--accent);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+      font-size: 22px;
+      color: var(--accent);
+      pointer-events: none;
+      letter-spacing: .5px;
+    }
+    #drop-overlay.on { display: flex; }
+
+    #file-input { display: none; }
+
+    /* ── Loading pulse ────────────────────────────────── */
+    @keyframes pulse { from { opacity: .4; } to { opacity: 1; } }
+    .loading { animation: pulse 1s infinite alternate; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Keyboard Sample Player</h1>
+  <div id="subtitle" class="loading">Initialising…</div>
+
+  <div class="controls">
+    <span class="badge" id="mode-badge">synth</span>
+
+    <div class="ctrl-group">
+      <span class="ctrl-label">Octave</span>
+      <button class="btn-sq" id="oct-dn" title="Octave down (Shift+Z)">−</button>
+      <span class="oct-display" id="oct-val">4</span>
+      <button class="btn-sq" id="oct-up" title="Octave up (Shift+X)">+</button>
+    </div>
+
+    <div class="ctrl-group">
+      <span class="ctrl-label">Volume</span>
+      <input type="range" id="vol-range" min="0" max="100" value="80">
+      <span id="vol-label">80%</span>
+    </div>
+
+    <button id="load-btn">Load Samples</button>
+    <input type="file" id="file-input" accept="audio/*,.wav,.ogg,.mp3,.flac" multiple>
+  </div>
+</header>
+
+<div id="kb-scroll">
+  <div id="keyboard"></div>
+</div>
+
+<div class="status-bar">
+  <span id="status-msg">Press any highlighted key or click a key tile to play</span>
+  <div class="hints">
+    <span class="hint"><kbd>Shift</kbd>+<kbd>Z</kbd>/<kbd>X</kbd>&nbsp;octave</span>
+    <span class="hint"><kbd>-</kbd>/<kbd>=</kbd>&nbsp;volume</span>
+    <span class="hint">drop audio onto a key to rebind it</span>
+  </div>
+</div>
+
+<div id="drop-overlay">Drop audio files to load samples</div>
+
+<script>
+// ─── Piano layout (classic tracker two-octave keyboard) ──────────────────────
+const PIANO = {
+  z:['C',0],  s:['C#',0], x:['D',0],  d:['D#',0],
+  c:['E',0],  v:['F',0],  g:['F#',0], b:['G',0],
+  h:['G#',0], n:['A',0],  j:['A#',0], m:['B',0],
+  ',':['C',1],l:['C#',1], '.':['D',1],';':['D#',1],'/':['E',1],
+  q:['C',1],  2:['C#',1], w:['D',1],  3:['D#',1],
+  e:['E',1],  r:['F',1],  5:['F#',1], t:['G',1],
+  6:['G#',1], y:['A',1],  7:['A#',1], u:['B',1],
+  i:['C',2],  9:['C#',2], o:['D',2],  0:['D#',2], p:['E',2],
+};
+
+// Visual keyboard grid (all keys shown, unmapped keys grey)
+const ROWS = [
+  ['1','2','3','4','5','6','7','8','9','0','-','='],
+  ['q','w','e','r','t','y','u','i','o','p','[',']'],
+  ['a','s','d','f','g','h','j','k','l',';',"'"],
+  ['z','x','c','v','b','n','m',',','.','/',],
+];
+
+// Keys used for auto-assigning loose files
+const AUTO_KEYS = 'asdfghjklqwertyuiopzxcvbnm1234567890'.split('');
+
+const AUDIO_RE = /\.(wav|ogg|mp3|flac|aiff?|m4a)$/i;
+
+function noteFreq(note, oct) {
+  const ST = {C:0,'C#':1,D:2,'D#':3,E:4,F:5,'F#':6,G:7,'G#':8,A:9,'A#':10,B:11};
+  return 440 * Math.pow(2, ((oct + 1) * 12 + ST[note] - 69) / 12);
+}
+
+// ─── Audio engine ────────────────────────────────────────────────────────────
+const eng = {
+  ctx: null,
+  master: null,
+  volume: 0.8,
+  baseOct: 4,
+  mode: 'piano',        // 'piano' | 'samples'
+  bindings: {},         // key → { label, type:'synth'|'sample', freq?, buf? }
+
+  boot() {
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = this.volume;
+    this.master.connect(this.ctx.destination);
+  },
+
+  setVol(v) {
+    this.volume = v;
+    if (this.master) this.master.gain.value = v;
+  },
+
+  buildPiano() {
+    this.bindings = {};
+    this.mode = 'piano';
+    for (const [k, [note, off]] of Object.entries(PIANO)) {
+      const oct = this.baseOct + off;
+      this.bindings[k] = { label: `${note}${oct}`, type: 'synth', freq: noteFreq(note, oct) };
+    }
+  },
+
+  changeOct(d) {
+    if (this.mode !== 'piano') return false;
+    const next = Math.max(1, Math.min(6, this.baseOct + d));
+    if (next === this.baseOct) return false;
+    this.baseOct = next;
+    this.buildPiano();
+    return true;
+  },
+
+  async decode(ab) {
+    this.boot();
+    return this.ctx.decodeAudioData(ab);
+  },
+
+  bind(key, buf, label) {
+    this.bindings[key] = { label, type: 'sample', buf };
+    if (this.mode === 'piano') this.mode = 'mixed';
+  },
+
+  play(key) {
+    const b = this.bindings[key];
+    if (!b) return false;
+    this.boot();
+    b.type === 'synth' ? this._synth(b.freq) : this._sample(b.buf);
+    return true;
+  },
+
+  _synth(freq) {
+    const ctx = this.ctx, now = ctx.currentTime;
+    const HARMONICS = [[1,1.0],[2,.45],[3,.22],[4,.12],[5,.06]];
+    const norm = HARMONICS.reduce((s,[,w])=>s+w, 0);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(1,   now + .005);
+    env.gain.linearRampToValueAtTime(.55, now + .185);
+    env.gain.setValueAtTime(.55,           now + .65);
+    env.gain.linearRampToValueAtTime(0,   now + 1.1);
+    env.connect(this.master);
+    for (const [m, w] of HARMONICS) {
+      const g = ctx.createGain();  g.gain.value = (w/norm)*.32;
+      const o = ctx.createOscillator();
+      o.type = 'sine'; o.frequency.value = freq * m;
+      o.connect(g); g.connect(env);
+      o.start(now); o.stop(now + 1.15);
+    }
+  },
+
+  _sample(buf) {
+    if (!buf) return;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(this.master);
+    src.start();
+  },
+};
+
+// ─── DOM / keyboard UI ───────────────────────────────────────────────────────
+const keyEls = {};   // key char → element
+const active  = new Set();
+
+function buildKeyboard() {
+  const kb = document.getElementById('keyboard');
+  kb.innerHTML = '';
+  for (const row of ROWS) {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'key-row';
+    for (const k of row) {
+      const el = document.createElement('div');
+      el.className = 'key';
+      el.dataset.k = k;
+      el.innerHTML = `<span class="kl">${k === ',' ? ',' : k === '.' ? '.' :
+        k === '/' ? '/' : k === ';' ? ';' : k === "'" ? "'" :
+        k.toUpperCase()}</span><span class="kn"></span>`;
+
+      el.addEventListener('mousedown',  e => { e.preventDefault(); strike(k, true); });
+      el.addEventListener('mouseup',    ()  => strike(k, false));
+      el.addEventListener('mouseleave', ()  => strike(k, false));
+      el.addEventListener('touchstart', e => { e.preventDefault(); strike(k, true); }, {passive:false});
+      el.addEventListener('touchend',   ()  => strike(k, false));
+
+      el.addEventListener('dragover',  e  => { e.preventDefault(); el.classList.add('drag-over'); });
+      el.addEventListener('dragleave', ()  => el.classList.remove('drag-over'));
+      el.addEventListener('drop', e => {
+        e.preventDefault(); el.classList.remove('drag-over');
+        loadFiles(Array.from(e.dataTransfer.files), k);
+      });
+
+      keyEls[k] = el;
+      rowEl.appendChild(el);
+    }
+    kb.appendChild(rowEl);
+  }
+}
+
+function refreshVisuals() {
+  for (const [k, el] of Object.entries(keyEls)) {
+    const b = eng.bindings[k];
+    el.classList.toggle('mapped', !!b);
+    el.querySelector('.kn').textContent = b ? b.label : '';
+  }
+}
+
+function strike(k, down) {
+  if (down && !active.has(k)) {
+    active.add(k);
+    if (eng.play(k) && keyEls[k]) keyEls[k].classList.add('active');
+    const b = eng.bindings[k];
+    if (b) setStatus(`▶  ${b.label}`);
+  } else if (!down) {
+    active.delete(k);
+    if (keyEls[k]) keyEls[k].classList.remove('active');
+  }
+}
+
+function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
+function setSubtitle(msg) {
+  const el = document.getElementById('subtitle');
+  el.classList.remove('loading');
+  el.textContent = msg;
+}
+function syncOct()  { document.getElementById('oct-val').textContent = eng.baseOct; }
+function syncMode() {
+  const b = document.getElementById('mode-badge');
+  const labels = { piano: 'synth piano', samples: 'samples', mixed: 'mixed' };
+  b.textContent = labels[eng.mode] ?? eng.mode;
+  b.className = 'badge' + (eng.mode === 'piano' ? '' : ' samples');
+}
+
+// ─── Sample loading ───────────────────────────────────────────────────────────
+async function loadFiles(files, targetKey = null) {
+  const audio = files.filter(f => AUDIO_RE.test(f.name) || f.type.startsWith('audio/'));
+  if (!audio.length) return;
+
+  setStatus('Loading…');
+  if (targetKey && audio.length === 1) {
+    const buf = await eng.decode(await audio[0].arrayBuffer());
+    const label = audio[0].name.replace(/\.[^.]+$/, '');
+    eng.bind(targetKey, buf, label);
+    refreshVisuals(); syncMode();
+    setStatus(`Loaded "${label}" → ${targetKey.toUpperCase()}`);
+    return;
+  }
+
+  const keys = targetKey ? [targetKey, ...AUTO_KEYS.filter(k => k !== targetKey)]
+                          : AUTO_KEYS;
+  let i = 0;
+  for (const f of audio) {
+    if (i >= keys.length) break;
+    const buf = await eng.decode(await f.arrayBuffer());
+    eng.bind(keys[i++], buf, f.name.replace(/\.[^.]+$/, ''));
+  }
+  refreshVisuals(); syncMode();
+  setStatus(`${i} sample${i !== 1 ? 's' : ''} loaded`);
+}
+
+async function loadRepoSamples() {
+  try {
+    const res = await fetch('samples/mapping.json');
+    if (!res.ok) return false;
+    const map = await res.json();
+    let count = 0;
+    for (const [key, path] of Object.entries(map)) {
+      if (!AUDIO_RE.test(path)) continue;   // skip _comment and non-audio values
+      try {
+        const r = await fetch(`samples/${path}`);
+        if (!r.ok) { console.warn('Missing:', path); continue; }
+        const buf = await eng.decode(await r.arrayBuffer());
+        const label = path.replace(/^.*\//, '').replace(/\.[^.]+$/, '');
+        eng.bindings[key.toLowerCase()] = { label, type: 'sample', buf };
+        count++;
+      } catch (e) { console.warn('Failed:', path, e); }
+    }
+    if (count) {
+      eng.mode = 'samples';
+      return count;
+    }
+  } catch (_) { /* no mapping.json */ }
+  return 0;
+}
+
+// ─── Keyboard events ──────────────────────────────────────────────────────────
+function key(e) {
+  return e.key.length === 1 ? e.key.toLowerCase() : null;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  const k = key(e);
+  if (!k) return;
+
+  if (k === '-' || k === '_') { adjVol(-0.1); return; }
+  if (k === '=' || k === '+') { adjVol(+0.1); return; }
+
+  if (e.shiftKey) {
+    if (k === 'z') { if (eng.changeOct(-1)) { refreshVisuals(); syncOct(); setStatus(`Octave ${eng.baseOct}`); } return; }
+    if (k === 'x') { if (eng.changeOct(+1)) { refreshVisuals(); syncOct(); setStatus(`Octave ${eng.baseOct}`); } return; }
+  }
+
+  strike(k, true);
+});
+
+document.addEventListener('keyup', e => {
+  const k = key(e);
+  if (k) strike(k, false);
+});
+
+function adjVol(d) {
+  const v = Math.max(0, Math.min(1, Math.round((eng.volume + d) * 10) / 10));
+  eng.setVol(v);
+  document.getElementById('vol-range').value = Math.round(v * 100);
+  document.getElementById('vol-label').textContent = `${Math.round(v * 100)}%`;
+}
+
+document.getElementById('vol-range').addEventListener('input', function () {
+  eng.setVol(this.value / 100);
+  document.getElementById('vol-label').textContent = `${this.value}%`;
+});
+document.getElementById('oct-dn').addEventListener('click', () => {
+  if (eng.changeOct(-1)) { refreshVisuals(); syncOct(); }
+});
+document.getElementById('oct-up').addEventListener('click', () => {
+  if (eng.changeOct(+1)) { refreshVisuals(); syncOct(); }
+});
+document.getElementById('load-btn').addEventListener('click', () =>
+  document.getElementById('file-input').click());
+document.getElementById('file-input').addEventListener('change', function () {
+  loadFiles(Array.from(this.files)); this.value = '';
+});
+
+// Global drag & drop
+let dragN = 0;
+const overlay = document.getElementById('drop-overlay');
+document.addEventListener('dragenter', e => { e.preventDefault(); if (++dragN === 1) overlay.classList.add('on'); });
+document.addEventListener('dragleave', () => { if (--dragN <= 0) { dragN = 0; overlay.classList.remove('on'); } });
+document.addEventListener('dragover',  e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault(); dragN = 0; overlay.classList.remove('on');
+  if (!e.target.closest('.key')) loadFiles(Array.from(e.dataTransfer.files));
+});
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+(async () => {
+  buildKeyboard();
+
+  const repoCount = await loadRepoSamples();
+  if (repoCount) {
+    refreshVisuals(); syncMode();
+    setSubtitle(`${repoCount} samples loaded from samples/mapping.json  ·  drop files onto keys to rebind`);
+    setStatus('Press any highlighted key or click a key tile to play');
+  } else {
+    eng.buildPiano();
+    refreshVisuals(); syncMode();
+    setSubtitle('Synth piano  ·  drop audio files onto keys or use "Load Samples"  ·  Shift+Z/X = octave');
+    setStatus('Press any highlighted key or click a key tile to play');
+  }
+
+  syncOct();
+})();
+</script>
+</body>
+</html>

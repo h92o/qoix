@@ -1,75 +1,70 @@
-# qoix
+# qoix — Keyboard Sample Player
 
 A repository of idea stuff.
 
-## Keyboard Sample Player
+## Web App (GitHub Pages)
 
-Turn your computer keyboard into a sample player: every key is bound to an
-audio sample, and pressing the key triggers it. A window shows the live
-keyboard so you can see what each key plays and which keys are sounding.
+**Live page:** `https://h92o.github.io/qoix/`
 
-It works out of the box — with **no sample files of your own** it generates a
-built-in synth note bank and lays the keyboard out as a playable piano. Drop in
-your own sounds when you want a drum kit or custom set.
+Open the page, press keys on your computer keyboard to play. No install needed —
+everything runs in the browser using the Web Audio API.
 
-### Install & run
+**Three modes, chosen automatically:**
 
-```bash
-pip install -r requirements.txt      # just pygame
-python3 keyboard_sample_player.py     # synth piano mode
-```
+| Mode | How it activates |
+|---|---|
+| **Synth piano** | Default — no samples needed. Classic two-octave tracker layout with additive-synth ADSR tones |
+| **Repo samples** | Add audio files + a `samples/mapping.json` to this repo; the page fetches and loads them |
+| **Drag & drop** | Drop audio files onto any key tile (or anywhere on the page) to load your own samples live |
 
-### Use your own samples
+### Web controls
 
-```bash
-# Auto-assign every audio file in a folder to keys (a, s, d, f, ...):
-python3 keyboard_sample_player.py --samples my_kit/
-
-# ...or curate the layout with a mapping.json in that folder:
-#   { "a": "kick.wav", "s": "snare.wav", "d": "hat.wav" }
-```
-
-See [`samples/README.md`](samples/README.md) for the three mapping modes
-(explicit `mapping.json`, auto-assigned loose files, synth fallback).
-
-### Controls
-
-| Key | Action |
-| --- | --- |
-| any mapped key | play its sample |
+| Key / action | Effect |
+|---|---|
+| any highlighted key | play its sample / note |
 | `Shift+Z` / `Shift+X` | (piano mode) octave down / up |
-| `-` / `=` | master volume down / up |
-| `Esc` / close window | quit |
+| `-` / `=` | volume down / up |
+| click a key tile | play it (works on touch too) |
+| drag audio onto a key | bind that file to that key |
+| **Load Samples** button | file picker to load audio files |
 
-### Command-line options
+### Adding samples to the repo
 
-```
---samples DIR    folder with audio files / mapping.json (default: samples)
---octave N       base octave for synth piano mode (default: 4)
---channels N     max simultaneous voices / polyphony (default: 32)
---list           print the key mapping and exit (no window or audio needed)
-```
+1. Put your `.wav` / `.ogg` / `.mp3` / `.flac` files in `samples/`
+2. Copy `samples/mapping.example.json` → `samples/mapping.json` and edit it:
+   ```json
+   { "a": "kick.wav", "s": "snare.wav", "d": "hat.wav" }
+   ```
+3. Commit and push — the live page will load the samples automatically
 
-Preview a mapping without launching the window or needing pygame:
+See [`samples/README.md`](samples/README.md) for full details.
+
+---
+
+## Desktop App (Python)
+
+Needs `pygame` but gives a native window with lower latency.
 
 ```bash
-python3 keyboard_sample_player.py --list
+pip install -r requirements.txt
+python3 keyboard_sample_player.py            # synth piano
+python3 keyboard_sample_player.py --samples my_kit/   # your own samples
+python3 keyboard_sample_player.py --list     # print mapping, no window needed
 ```
+
+Options: `--samples DIR`, `--octave N`, `--channels N`, `--list`
 
 ### Files
 
 | File | Purpose |
-| --- | --- |
-| `keyboard_sample_player.py` | main application (pygame: audio + window + keys) |
-| `tone_generator.py` | pure-stdlib WAV synth that bootstraps the note bank |
-| `samples/` | your audio files / `mapping.json` go here |
-| `requirements.txt` | Python dependencies (`pygame`) |
+|---|---|
+| `index.html` | **web app** — single page, no build step, works on GitHub Pages |
+| `keyboard_sample_player.py` | desktop app (pygame) |
+| `tone_generator.py` | pure-stdlib WAV synth (bootstraps the desktop note bank) |
+| `samples/` | audio files + `mapping.json` go here (shared by both apps) |
+| `requirements.txt` | Python dependency (`pygame`) |
 
-### How it works
+### Enabling GitHub Pages
 
-- **Audio** is handled by `pygame.mixer` with a pool of channels, so notes and
-  hits overlap polyphonically instead of cutting each other off.
-- **Keys** are read from the pygame event loop using `pygame.key.name(...)`,
-  which is what `mapping.json` keys are matched against.
-- **The synth fallback** renders each note with light additive synthesis and an
-  ADSR envelope via Python's standard `wave` module — no numpy required.
+In the repo → **Settings → Pages → Source**, set branch `main` (or this branch),
+folder `/root`. The app will be live at `https://h92o.github.io/qoix/`.
