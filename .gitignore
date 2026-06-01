@@ -1,0 +1,9 @@
+# Auto-generated synth note bank (recreated on first run)
+samples/notes/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/

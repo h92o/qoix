@@ -1,0 +1,12 @@
+{
+  "_comment": "Rename to mapping.json to use. Keys are lowercase key names as reported by pygame (letters, digits, and ',' '.' '/' ';' '-' '=' 'space' etc.). Paths are relative to this samples directory (or absolute).",
+  "a": "kick.wav",
+  "s": "snare.wav",
+  "d": "hat_closed.wav",
+  "f": "hat_open.wav",
+  "g": "clap.wav",
+  "h": "tom_low.wav",
+  "j": "tom_mid.wav",
+  "k": "tom_high.wav",
+  "l": "crash.wav"
+}
