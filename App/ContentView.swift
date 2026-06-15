@@ -2,7 +2,7 @@ import SwiftUI
 import R4VizKit
 
 /// The app's main screen: a full-bleed visualization with an overlaid control
-/// bar to switch plugins and pause/resume. Identical on macOS and iOS.
+/// bar to switch scenes and pause/resume. Identical on macOS and iOS.
 struct ContentView: View {
 
     @ObservedObject var engine: VisualizationEngine
@@ -22,9 +22,9 @@ struct ContentView: View {
 
     private var controlBar: some View {
         HStack(spacing: 16) {
-            Picker("Visualization", selection: $engine.selectedPluginID) {
-                ForEach(engine.registry.plugins, id: \.id) { plugin in
-                    Text(plugin.displayName).tag(plugin.id)
+            Picker("Scene", selection: $engine.selectedSceneID) {
+                ForEach(engine.registry.scenes, id: \.id) { scene in
+                    Text(scene.name).tag(scene.id)
                 }
             }
             .labelsHidden()

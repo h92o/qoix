@@ -1,47 +1,50 @@
 import SwiftUI
-import Combine
 
-/// Drives the visualization: owns the plugin registry, the active selection, and
-/// the signal source, and exposes the per-frame input the view renders.
+/// Drives the visualization: owns the scene registry, the active selection, and
+/// the signal source, and produces the per-frame ``AudioFrame``.
 ///
 /// This is the single observable object the UI binds to. The view layer stays a
-/// thin shell: it picks a plugin and asks the engine for the current frame.
+/// thin shell: it picks a scene and renders the current frame.
 @MainActor
 public final class VisualizationEngine: ObservableObject {
 
-    public let registry: PluginRegistry
+    public let registry: SceneRegistry
 
-    /// Identifier of the currently selected plugin.
-    @Published public var selectedPluginID: String
-
-    /// Whether the visualization is advancing.
+    @Published public var selectedSceneID: String
     @Published public var isRunning: Bool = true
 
     private let source: SignalSource
+    private var lastTime: TimeInterval?
 
     public init(
-        registry: PluginRegistry = .makeDefault(),
+        registry: SceneRegistry = .makeDefault(),
         source: SignalSource = SyntheticSignalSource()
     ) {
         self.registry = registry
         self.source = source
-        self.selectedPluginID = registry.plugins.first?.id ?? ""
+        self.selectedSceneID = registry.scenes.first?.id ?? ""
+        registry.scenes.forEach { $0.reset() }
     }
 
-    /// The plugin matching ``selectedPluginID`` (falling back to the first).
-    public var activePlugin: VisualizationPlugin? {
-        registry.plugin(withID: selectedPluginID) ?? registry.plugins.first
+    /// The scene matching ``selectedSceneID`` (falling back to the first).
+    public var activeScene: R4Scene? {
+        registry.scene(withID: selectedSceneID) ?? registry.scenes.first
     }
 
-    /// Produce the input frame for `time`. When paused, returns a frozen frame.
-    public func frame(at time: TimeInterval) -> VisualizationInput {
-        source.frame(at: isRunning ? time : 0)
+    /// Produce the input frame for `time`, deriving `timepass` from the gap since
+    /// the previous frame. When paused, the clock holds still.
+    public func frame(at time: TimeInterval) -> AudioFrame {
+        let timepass = max(0, min(time - (lastTime ?? time), 0.1))
+        lastTime = time
+        return source.frame(at: time, timepass: isRunning ? timepass : 0)
     }
 
-    /// Advance to the next plugin in the registry (wraps around).
-    public func cyclePlugin() {
-        let plugins = registry.plugins
-        guard let index = plugins.firstIndex(where: { $0.id == selectedPluginID }) else { return }
-        selectedPluginID = plugins[(index + 1) % plugins.count].id
+    /// Select the next scene in the registry (wraps around) and reset it.
+    public func cycleScene() {
+        let scenes = registry.scenes
+        guard let index = scenes.firstIndex(where: { $0.id == selectedSceneID }) else { return }
+        let next = scenes[(index + 1) % scenes.count]
+        selectedSceneID = next.id
+        next.reset()
     }
 }

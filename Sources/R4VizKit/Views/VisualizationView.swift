@@ -1,11 +1,11 @@
 import SwiftUI
 
-/// Renders the active plugin every display frame.
+/// Renders the active scene every display frame.
 ///
 /// `TimelineView(.animation)` ticks at the display's refresh rate and feeds a
-/// monotonic timestamp into the engine, so the visualization is smooth and
-/// resolution-independent on both macOS and iOS. All drawing happens inside a
-/// single `Canvas`, which SwiftUI renders on the GPU.
+/// monotonic timestamp into the engine; the scene then draws through the
+/// immediate-mode ``GL`` helper into a single GPU-backed `Canvas`. Smooth and
+/// resolution-independent on both macOS and iOS.
 public struct VisualizationView: View {
 
     @ObservedObject private var engine: VisualizationEngine
@@ -18,12 +18,12 @@ public struct VisualizationView: View {
     public var body: some View {
         TimelineView(.animation(paused: !engine.isRunning)) { timeline in
             let elapsed = timeline.date.timeIntervalSince(startDate)
-            let input = engine.frame(at: elapsed)
+            let audio = engine.frame(at: elapsed)
 
             Canvas { context, size in
-                guard let plugin = engine.activePlugin else { return }
-                var ctx = context
-                plugin.render(input, into: &ctx, size: size)
+                guard let scene = engine.activeScene else { return }
+                let gl = GL(context: context, size: size)
+                scene.render(audio, gl: gl)
             }
             .background(Color.black)
         }

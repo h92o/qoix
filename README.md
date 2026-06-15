@@ -1,54 +1,64 @@
 # qoix — R4Viz
 
-A native **macOS + iOS** scaffold for **R4**, originally a Win32 visualization
-project. R4Viz brings the "pluggable visualizer" idea to Apple platforms with a
-single shared codebase written in **SwiftUI**.
+A native **macOS + iOS** port of **R4**, the audio-reactive music visualizer by
+Gordon Williams (RabidHamster). R4 originally ran on Windows via OpenGL and a
+custom scene-scripting language; R4Viz brings its scene model to Apple platforms
+with a single shared **SwiftUI** codebase.
+
+> This repo does not redistribute R4's original binaries, textures, shaders, or
+> scene scripts. The Swift here is an original reimplementation of the engine's
+> ideas and of a few scenes. See [`docs/R4_ENGINE.md`](docs/R4_ENGINE.md).
 
 ## What's here
 
-This is a working app *scaffold* with a real plugin architecture, not just an
-empty project. A synthetic signal generator drives the visualizers out of the
-box, so the app animates the moment it launches — swap in a microphone or audio
-file later by conforming to one protocol.
+A working app *scaffold* built around R4's real architecture: audio-reactive
+scenes drawn through an immediate-mode GL helper. A synthetic, beat-driven signal
+generator drives the scenes out of the box, so the app reacts the moment it
+launches — swap in a microphone or audio file later via one protocol.
 
 ```
 Package.swift              SwiftPM manifest for the shared R4VizKit library + tests
 project.yml                XcodeGen spec defining the macOS & iOS app targets
 App/                       Shared SwiftUI app (one source set, both platforms)
   R4VizApp.swift             @main App entry point
-  ContentView.swift          Full-bleed visualization + control bar
+  ContentView.swift          Full-bleed visualization + scene picker / pause
 Sources/R4VizKit/          Reusable, platform-agnostic engine
-  Plugin/                    VisualizationPlugin protocol + PluginRegistry
-  Data/                      VisualizationInput + SignalSource (synthetic generator)
-  Plugins/                   Bundled visualizers (waveform, spectrum bars, particles)
-  Engine/                    VisualizationEngine (observable, drives the UI)
-  Views/                     VisualizationView (TimelineView + Canvas render loop)
-Tests/R4VizKitTests/       Unit tests for the engine and signal source
+  Audio/                     AudioFrame + SignalSource (synthetic beat generator)
+  Scene/                     R4Scene protocol + SceneRegistry
+  Scenes/                    Ported scenes: Spinner, Thumper, Cube Field, Spectrum
+  Engine/                    GL immediate-mode helper + VisualizationEngine
+  Math/                      Matrix4 (perspective/transform) + HSB color
+  Views/                     VisualizationView (TimelineView + Canvas loop)
+Tests/R4VizKitTests/       Unit tests for the engine, audio, math, and scenes
+docs/R4_ENGINE.md          Notes on the original R4 engine being ported
 ```
 
 ## Architecture
 
 ```
-SignalSource ──frame(at:)──▶ VisualizationInput ──▶ VisualizationPlugin.render ──▶ Canvas
-     (data)                      (one frame)              (one visualizer)         (GPU)
+SignalSource ──frame(at:)──▶ AudioFrame ──▶ R4Scene.render(_:gl:) ──▶ GL ──▶ Canvas
+   (audio)                   (time,             (one scene,           (immediate    (GPU)
+                              sounda,            reactive)             mode)
+                              spectrum, beat)
 ```
 
-- **`VisualizationPlugin`** — each visualizer is one small object that draws a
-  frame into a SwiftUI `GraphicsContext`. Because everything renders through
-  `Canvas`, plugins are GPU-accelerated and 100% shared between macOS and iOS
-  with zero platform-specific drawing code.
-- **`SignalSource`** — abstracts where data comes from. `SyntheticSignalSource`
-  ships by default; conform a mic tap or file decoder to feed real audio.
+- **`AudioFrame`** mirrors R4's reactive variables (`time`, `timepass`,
+  `sounda`, spectrum, `beat`) so ported scenes read like the originals.
+- **`GL`** is a tiny immediate-mode helper (matrix stack, perspective,
+  `quad`/`cube`/`line`, color + additive blend) standing in for R4's `gl`
+  module. It projects on the CPU and draws into a SwiftUI `Canvas`, so scenes are
+  100% shared between macOS and iOS with no platform-specific drawing.
+- **`R4Scene`** — each scene keeps a little state and draws one frame, exactly
+  like an R4 `SCENE` script's `render()`.
 - **`VisualizationEngine`** — the single `ObservableObject` the UI binds to:
-  owns the registry, the active selection, and play/pause state.
+  owns the registry, active selection, and play/pause.
 
-### Add a new visualizer
+### Add a scene
 
-1. Create `Sources/R4VizKit/Plugins/MyPlugin.swift` conforming to
-   `VisualizationPlugin`.
-2. Add it to `PluginRegistry.makeDefault()`.
+1. Create `Sources/R4VizKit/Scenes/MyScene.swift` conforming to `R4Scene`.
+2. Add it to `SceneRegistry.makeDefault()`.
 
-That's it — it appears in the picker automatically.
+It appears in the picker automatically.
 
 ## Building
 
@@ -62,7 +72,7 @@ xcodegen generate
 
 # 2. Open and run
 open R4Viz.xcodeproj
-#    then pick the "R4Viz-macOS" or "R4Viz-iOS" scheme and Run (⌘R)
+#    pick the "R4Viz-macOS" or "R4Viz-iOS" scheme and Run (⌘R)
 ```
 
 Run the engine unit tests from the command line via SwiftPM:
@@ -76,3 +86,8 @@ swift test
 - macOS 12+ / iOS 15+
 - Xcode 15+ (Swift 5.9)
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) to generate the app project
+
+## Credits
+
+Original R4 visualizer © Gordon Williams (RabidHamster). This is an independent
+reimplementation for educational/porting purposes.
