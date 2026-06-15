@@ -76,6 +76,12 @@ public final class GL {
         (current.m * SIMD4<Float>(p.x, p.y, p.z, 1)).z
     }
 
+    /// Fill the entire viewport with the current color (R4 `SOLID` background).
+    public func fillBackground(_ r: Double, _ g: Double, _ b: Double, _ a: Double = 1) {
+        let rect = CGRect(origin: .zero, size: size)
+        context.fill(Path(rect), with: .color(Color(.sRGB, red: r, green: g, blue: b, opacity: a)))
+    }
+
     // MARK: Primitives
 
     /// Draw a unit quad in the XY plane (corners ±1), filled with the current color.

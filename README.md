@@ -26,21 +26,27 @@ Sources/R4VizKit/          Reusable, platform-agnostic engine
   Audio/                     AudioFrame + SignalSource (synthetic beat generator)
   Scene/                     R4Scene protocol + SceneRegistry
   Scenes/                    Ported scenes: Spinner, Thumper, Cube Field, Spectrum, Medusa
+  Module/                    R4Module + ModuleGraph + GraphScene (R4 Construct model)
+  Overlay/                   R4Overlay post-FX: Blur, Scanlines, Spectrum, Strobe, RGB Split
+  Fade/                      R4Fade transitions: Cross, Cut, Slide, Zoom
   Engine/                    GL immediate-mode helper + VisualizationEngine
   Math/                      Matrix4 (perspective/transform) + HSB color
   Views/                     VisualizationView (TimelineView + Canvas loop)
-Tests/R4VizKitTests/       Unit tests for the engine, audio, math, and scenes
+Tests/R4VizKitTests/       Unit tests for the engine, audio, math, scenes, graph
 docs/R4_ENGINE.md          Notes on the original R4 engine being ported
 ```
 
 ## Architecture
 
 ```
-SignalSource ──frame(at:)──▶ AudioFrame ──▶ R4Scene.render(_:gl:) ──▶ GL ──▶ Canvas
-   (audio)                   (time,             (one scene,           (immediate    (GPU)
-                              sounda,            reactive)             mode)
-                              spectrum, beat)
+SignalSource ─▶ AudioFrame ─▶ [Scene | ModuleGraph] ─▶ Fade ─▶ Overlay ─▶ Canvas
+   (audio)      (time, sounda,   (one scene, or a       (scene   (post-FX)   (GPU)
+                spectrum, beat)   graph of modules)     transition)
 ```
+
+The per-frame pipeline: the engine renders the active scene (or, during a scene
+change, a **fade** between the outgoing and incoming scenes) and wraps the result
+in the active **overlay** post-processing pass.
 
 - **`AudioFrame`** mirrors R4's reactive variables (`time`, `timepass`,
   `sounda`, spectrum, `beat`) so ported scenes read like the originals.

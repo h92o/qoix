@@ -53,6 +53,20 @@ Common blends: `B10` (replace), `BAa` (alpha blend), `B11` (additive),
 (`GL.additiveBlend()` / `normalBlend()`); full shader-string parsing is left as a
 follow-up.
 
+### Overlays and fades
+
+R4 also has **overlays** (post-processing passes drawn over the scene — blur,
+mirror, RGB split, scanlines, spectrum, strobe…) and **fades** (transitions
+between scenes — cross-fade, slide, zoom, cube…). The scaffold implements both as
+small protocols:
+
+- `R4Overlay.composite` receives the scene as a closure and decides how to draw
+  it — pass-through, into a filtered layer (`Blur`, `RGB Split`), or with
+  decoration on top (`Scanlines`, `Spectrum`, `Strobe`).
+- `R4Fade.render` blends an outgoing and incoming scene by a progress `t`
+  (`Cross`, `Cut`, `Slide`, `Zoom`). The engine starts a fade whenever the
+  selected scene changes.
+
 ## Scenes as module graphs (R4 Construct)
 
 R4 also shipped **R4 Construct**, a Java GUI scene designer. It reveals that a
@@ -70,9 +84,11 @@ an `.r4` scene script.
 - Modules chain background → effect → … → output (a buffer flows from one
   module's output into the next module's input).
 
-The scaffold's scenes are hand-written rather than graph-compiled, but they are
-organized along the same idea (a background, an effect, audio-reactive state). A
-true module-graph compiler is a natural follow-up.
+The scaffold implements this directly: `R4Module` (with `inputs`) + `ModuleGraph`
+flatten a graph into back-to-front render order, and `GraphScene` adapts a graph
+to the `R4Scene` interface. Bundled modules: `Solid`, `Medusa`, `CubeField`; two
+registry scenes (`graph-medusa`, `graph-cubefield`) are built this way. A full
+text-`.properties`-driven compiler (as R4 Construct uses) is a natural follow-up.
 
 ### Preset packs
 

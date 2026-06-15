@@ -70,4 +70,37 @@ final class R4VizKitTests: XCTestCase {
         for _ in engine.registry.scenes { engine.cycleScene() }
         XCTAssertEqual(engine.selectedSceneID, start)
     }
+
+    func testOverlayAndFadeRegistries() {
+        let overlays = OverlayRegistry.makeDefault()
+        XCTAssertNotNil(overlays.overlay(withID: "none"))
+        XCTAssertNotNil(overlays.overlay(withID: "rgb-split"))
+
+        let fades = FadeRegistry.makeDefault()
+        XCTAssertNotNil(fades.fade(withID: "cross"))
+        XCTAssertNotNil(fades.fade(withID: "cut"))
+    }
+
+    func testModuleGraphRendersInputsBeforeOutput() {
+        // Solid background must render before the Medusa effect that sits on it.
+        let graph = ModuleGraph(output: MedusaModule(SolidModule(0, 0, 0)))
+        XCTAssertEqual(graph.renderOrder, ["Solid", "Medusa"])
+    }
+
+    func testGraphScenesAreRegistered() {
+        let registry = SceneRegistry.makeDefault()
+        XCTAssertNotNil(registry.scene(withID: "graph-medusa"))
+        XCTAssertNotNil(registry.scene(withID: "graph-cubefield"))
+    }
+
+    @MainActor
+    func testSelectingSceneStartsTransitionState() {
+        // Switching scenes with a non-cut fade should not throw and should land
+        // on the requested scene id.
+        let engine = VisualizationEngine()
+        engine.selectedFadeID = "cross"
+        let target = engine.registry.scenes.last!.id
+        engine.selectedSceneID = target
+        XCTAssertEqual(engine.selectedSceneID, target)
+    }
 }

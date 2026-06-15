@@ -27,6 +27,14 @@ public final class SceneRegistry {
             CubeFieldScene(),
             SpectrumScene(),
             MedusaScene(),
+            // Scenes built compositionally from modules (R4 Construct style):
+            // a Solid background feeding an effect module.
+            GraphScene(id: "graph-medusa", name: "Medusa ∘ Solid (graph)",
+                       author: "module graph",
+                       output: MedusaModule(SolidModule(0.03, 0.0, 0.07))),
+            GraphScene(id: "graph-cubefield", name: "Cube Field ∘ Solid (graph)",
+                       author: "module graph",
+                       output: CubeFieldModule(SolidModule(0.0, 0.02, 0.06))),
         ])
     }
 }
