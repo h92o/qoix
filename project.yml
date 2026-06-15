@@ -1,0 +1,60 @@
+# XcodeGen project spec for the R4Viz native apps.
+#
+# Generate the Xcode project with:
+#   brew install xcodegen   # one-time
+#   xcodegen generate
+#   open R4Viz.xcodeproj
+#
+# Both app targets share the exact same sources (App/ + R4VizKit), so a feature
+# written once ships on macOS and iOS. R4VizKit is built from the SwiftPM package
+# in this same repo so SwiftPM tests and the apps stay in lock-step.
+name: R4Viz
+
+options:
+  bundleIdPrefix: com.qoix.r4viz
+  deploymentTarget:
+    macOS: "12.0"
+    iOS: "15.0"
+
+packages:
+  R4VizKit:
+    path: .
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_UILaunchScreen_Generation: YES
+
+targets:
+  R4Viz-macOS:
+    type: application
+    platform: macOS
+    sources:
+      - App
+    dependencies:
+      - package: R4VizKit
+        product: R4VizKit
+    settings:
+      base:
+        PRODUCT_NAME: R4Viz
+        PRODUCT_BUNDLE_IDENTIFIER: com.qoix.r4viz.mac
+        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+
+  R4Viz-iOS:
+    type: application
+    platform: iOS
+    sources:
+      - App
+    dependencies:
+      - package: R4VizKit
+        product: R4VizKit
+    settings:
+      base:
+        PRODUCT_NAME: R4Viz
+        PRODUCT_BUNDLE_IDENTIFIER: com.qoix.r4viz.ios
+        TARGETED_DEVICE_FAMILY: "1,2" # iPhone + iPad
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
