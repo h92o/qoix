@@ -11,6 +11,7 @@ final class R4VizKitTests: XCTestCase {
         XCTAssertNotNil(registry.scene(withID: "thumper"))
         XCTAssertNotNil(registry.scene(withID: "cubefield"))
         XCTAssertNotNil(registry.scene(withID: "spectrum"))
+        XCTAssertNotNil(registry.scene(withID: "medusa"))
     }
 
     func testSceneIdentifiersAreUnique() {

@@ -25,7 +25,7 @@ App/                       Shared SwiftUI app (one source set, both platforms)
 Sources/R4VizKit/          Reusable, platform-agnostic engine
   Audio/                     AudioFrame + SignalSource (synthetic beat generator)
   Scene/                     R4Scene protocol + SceneRegistry
-  Scenes/                    Ported scenes: Spinner, Thumper, Cube Field, Spectrum
+  Scenes/                    Ported scenes: Spinner, Thumper, Cube Field, Spectrum, Medusa
   Engine/                    GL immediate-mode helper + VisualizationEngine
   Math/                      Matrix4 (perspective/transform) + HSB color
   Views/                     VisualizationView (TimelineView + Canvas loop)

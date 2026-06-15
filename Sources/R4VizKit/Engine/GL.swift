@@ -106,6 +106,25 @@ public final class GL {
         }
     }
 
+    /// Draw a soft round point at an object-space position, sized in world units
+    /// and scaled by perspective (nearer points are larger). Used by particle /
+    /// point-cloud scenes like Medusa.
+    public func point(_ p: SIMD3<Float>, size: Float) {
+        let eye = current.m * SIMD4<Float>(p.x, p.y, p.z, 1)
+        let clip = projection.m * eye
+        guard clip.w > 0.0001 else { return }
+        let ndc = SIMD3<Float>(clip.x, clip.y, clip.z) / clip.w
+        let center = CGPoint(
+            x: CGFloat(ndc.x * 0.5 + 0.5) * self.size.width,
+            y: CGFloat(1 - (ndc.y * 0.5 + 0.5)) * self.size.height
+        )
+        // Project the world size to screen pixels via the perspective w (≈ depth).
+        let radius = CGFloat(size) / CGFloat(clip.w) * self.size.height * 0.5
+        guard radius > 0.2 else { return }
+        let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+        context.fill(Path(ellipseIn: rect), with: .color(color()))
+    }
+
     /// Draw a line between two object-space points using the current color.
     public func line(_ a: SIMD3<Float>, _ b: SIMD3<Float>, width: CGFloat = 1) {
         guard let pa = project(a), let pb = project(b) else { return }

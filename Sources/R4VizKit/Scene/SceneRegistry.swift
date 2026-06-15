@@ -25,7 +25,8 @@ public final class SceneRegistry {
             SpinnerScene(),
             ThumperScene(),
             CubeFieldScene(),
-            SpectrumScene()
+            SpectrumScene(),
+            MedusaScene(),
         ])
     }
 }

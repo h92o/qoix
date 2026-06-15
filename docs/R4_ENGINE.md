@@ -53,6 +53,34 @@ Common blends: `B10` (replace), `BAa` (alpha blend), `B11` (additive),
 (`GL.additiveBlend()` / `normalBlend()`); full shader-string parsing is left as a
 follow-up.
 
+## Scenes as module graphs (R4 Construct)
+
+R4 also shipped **R4 Construct**, a Java GUI scene designer. It reveals that a
+scene is really a **graph of modules** wired together, which the tool compiles to
+an `.r4` scene script.
+
+- Each module has typed **inputs** (buffer handles), user-editable **functions**
+  (parameters), and one or more **output** module names — the last module in the
+  chain is the displayed output.
+- A module contributes lines to four code **sections**: the top-level `MODULE`
+  declaration, plus `init` / `reset` / `render`. For example a *Solid* module
+  declares `SOLID m();` and emits `m.col = rgb(r, g, b);` into `init`; a *Medusa*
+  module declares `MEDUSA m(in1, in2);` and emits `m.kick = sounda;` into
+  `render`; a *Point Morph* module drives `m.speed` from the sound each frame.
+- Modules chain background → effect → … → output (a buffer flows from one
+  module's output into the next module's input).
+
+The scaffold's scenes are hand-written rather than graph-compiled, but they are
+organized along the same idea (a background, an effect, audio-reactive state). A
+true module-graph compiler is a natural follow-up.
+
+### Preset packs
+
+R4's scene library was extended by community preset packs (e.g. the **Rovastar**
+pack of scenes, fades, and overlays) dropped into `data/predefine` as `.r4`
+scripts. The scaffold does not redistribute those scripts; they are noted here
+only to describe how R4's library grew.
+
 ## What the scaffold reimplements
 
 The Swift port keeps the parts that define R4's feel:
@@ -62,7 +90,8 @@ The Swift port keeps the parts that define R4's feel:
   `quad` / `cube` / `line`, color + additive blend) that mirrors how scene
   scripts draw.
 - A few scenes reinterpreted from the originals: **Spinner**, **Thumper /
-  Bass Cube**, **Cube Field**, and **Spectrum Cylinder**.
+  Bass Cube**, **Cube Field**, **Spectrum Cylinder**, and **Medusa**.
 
 Not yet ported (candidates for follow-up): textured assets, the scene-script
-interpreter, overlays/fades, and the tunnel / particle / morph module families.
+interpreter, the module-graph compiler (à la R4 Construct), overlays/fades, and
+the tunnel / point-morph / water-morph module families.
