@@ -30,14 +30,16 @@ public final class SpinnerScene: R4Scene {
 
         let hue = Double(bt) * 0.05
 
+        // Each layer is kept dim: 16 additive quads would otherwise saturate to
+        // white (the original Spinner uses a dark color, ~0.2, for the same reason).
         for i in 0..<8 {
             // Layer A (the "logo") and layer B (the "edge"), interleaved.
-            let a = hsb(hue, 0.7, 1)
-            gl.glColor(a.r, a.g, a.b, 0.18)
+            let a = hsb(hue, 0.8, 0.42)
+            gl.glColor(a.r, a.g, a.b, 0.16)
             gl.quad()
 
-            let b = hsb(hue + 0.5, 0.8, 1)
-            gl.glColor(b.r, b.g, b.b, 0.10 + 0.15 * Double(i) / 8)
+            let b = hsb(hue + 0.5, 0.9, 0.38)
+            gl.glColor(b.r, b.g, b.b, 0.08 + 0.10 * Double(i) / 8)
             gl.quad()
 
             gl.rotate(r, 0, 0, 1)
