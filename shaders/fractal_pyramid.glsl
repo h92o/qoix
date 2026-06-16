@@ -6,7 +6,9 @@
 // cyan -> magenta halo, giving a slowly breathing neon look.
 //
 // Original shader : https://www.shadertoy.com/view/tsXBzS
-// Original author : <ORIGINAL_AUTHOR>  (TODO: copy the username shown on that page)
+// Original author : bradjamesgrant  (published 2020-05-03)
+// Author's note   : "Creating multiple shapes with one SDF evaluation by
+//                    repeatedly rotating and folding space."
 // Copied / hosted by : xik  (https://www.shadertoy.com/user/xik)
 // Note: this is not original work by xik — it was copied from the URL above.
 //       Respect the original author's credit and Shadertoy's terms when reusing.

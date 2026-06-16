@@ -1,0 +1,19 @@
+Third-party content notice
+==========================
+
+shaders/fractal_pyramid.glsl and shaders/fractal_pyramid.html are NOT original
+work in this repository. The shader was created by:
+
+    Author : bradjamesgrant
+    Title  : fractal pyramid
+    Source : https://www.shadertoy.com/view/tsXBzS
+    Date   : 2020-05-03
+
+It was copied into this repo by xik for study/experimentation. The HTML file
+adds a WebGL host and slider UI around the unmodified shader logic.
+
+Licensing: shaders published on Shadertoy are, by default, licensed under
+Creative Commons Attribution-NonCommercial-ShareAlike 3.0 (CC BY-NC-SA 3.0)
+unless the author states otherwise. That license governs these two files,
+NOT the repository's top-level GPL-3.0 LICENSE. Keep the attribution above
+intact and do not use commercially without the original author's permission.
