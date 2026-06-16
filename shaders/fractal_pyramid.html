@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fractal pyramid</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Standalone WebGL host for the "fractal pyramid" shader.
+// Provides the Shadertoy-style uniforms (iResolution, iTime) so the same
+// fragment code runs in any browser. Open this file directly to view it.
+
+const canvas = document.getElementById("c");
+const gl = canvas.getContext("webgl");
+if (!gl) { document.body.innerHTML = "WebGL not supported"; throw new Error("no webgl"); }
+
+// Fullscreen triangle vertex shader.
+const VERT = `
+attribute vec2 aPos;
+void main(){ gl_Position = vec4(aPos, 0.0, 1.0); }
+`;
+
+// Fragment shader: the Shadertoy body adapted with iResolution/iTime uniforms
+// and a small main() that calls mainImage (mirrors Shadertoy's harness).
+const FRAG = `
+precision highp float;
+uniform vec2 iResolution;
+uniform float iTime;
+
+vec3 palette(float d){
+    return mix(vec3(0.2, 0.7, 0.9), vec3(1.0, 0.0, 1.0), d);
+}
+
+vec2 rotate(vec2 p, float a){
+    float c = cos(a);
+    float s = sin(a);
+    return p * mat2(c, s, -s, c);
+}
+
+float map(vec3 p){
+    for(int i = 0; i < 8; ++i){
+        float t = iTime * 0.2;
+        p.xz = rotate(p.xz, t);
+        p.xy = rotate(p.xy, t * 1.89);
+        p.xz = abs(p.xz);
+        p.xz -= 0.5;
+    }
+    return dot(sign(p), p) / 5.0;
+}
+
+vec4 rm(vec3 ro, vec3 rd){
+    float t = 0.0;
+    vec3 col = vec3(0.0);
+    float d = 0.0;
+    for(float i = 0.0; i < 64.0; i++){
+        vec3 p = ro + rd * t;
+        d = map(p) * 0.5;
+        if(d < 0.02) break;
+        if(d > 100.0) break;
+        col += palette(length(p) * 0.1) / (400.0 * d);
+        t += d;
+    }
+    return vec4(col, 1.0 / (d * 100.0));
+}
+
+void mainImage(out vec4 fragColor, in vec2 fragCoord){
+    vec2 uv = (fragCoord - (iResolution.xy / 2.0)) / iResolution.x;
+    vec3 ro = vec3(0.0, 0.0, -50.0);
+    ro.xz = rotate(ro.xz, iTime);
+    vec3 cf = normalize(-ro);
+    vec3 cs = normalize(cross(cf, vec3(0.0, 1.0, 0.0)));
+    vec3 cu = normalize(cross(cf, cs));
+    vec3 uuv = ro + cf * 3.0 + uv.x * cs + uv.y * cu;
+    vec3 rd = normalize(uuv - ro);
+    fragColor = rm(ro, rd);
+}
+
+void main(){
+    vec4 col;
+    mainImage(col, gl_FragCoord.xy);
+    gl_FragColor = col;
+}
+`;
+
+function compile(type, src){
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+        throw new Error(gl.getShaderInfoLog(sh));
+    }
+    return sh;
+}
+
+const prog = gl.createProgram();
+gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+gl.linkProgram(prog);
+if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    throw new Error(gl.getProgramInfoLog(prog));
+}
+gl.useProgram(prog);
+
+// Big triangle covering the whole clip space.
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+const aPos = gl.getAttribLocation(prog, "aPos");
+gl.enableVertexAttribArray(aPos);
+gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+const uRes = gl.getUniformLocation(prog, "iResolution");
+const uTime = gl.getUniformLocation(prog, "iTime");
+
+function resize(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.floor(canvas.clientWidth * dpr);
+    canvas.height = Math.floor(canvas.clientHeight * dpr);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener("resize", resize);
+resize();
+
+const start = performance.now();
+function frame(now){
+    gl.uniform2f(uRes, canvas.width, canvas.height);
+    gl.uniform1f(uTime, (now - start) / 1000.0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
