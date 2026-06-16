@@ -5,9 +5,11 @@
 // space 8 times per sample; near-misses to the surface accumulate a depth-tinted
 // cyan -> magenta halo, giving a slowly breathing neon look.
 //
-// Author : xik  (https://www.shadertoy.com/user/xik)
-// Shader : https://www.shadertoy.com/view/XXXXXX   (TODO: paste URL after publishing)
-// License: GPL-3.0 (see repository LICENSE)
+// Original shader : https://www.shadertoy.com/view/tsXBzS
+// Original author : <ORIGINAL_AUTHOR>  (TODO: copy the username shown on that page)
+// Copied / hosted by : xik  (https://www.shadertoy.com/user/xik)
+// Note: this is not original work by xik — it was copied from the URL above.
+//       Respect the original author's credit and Shadertoy's terms when reusing.
 //
 // Paste the body below into a new Shadertoy "Image" buffer; it relies on the
 // built-in iTime and iResolution uniforms. For a standalone, no-account version
