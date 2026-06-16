@@ -36,12 +36,13 @@ public final class CubeFieldScene: R4Scene {
         let totalDepth = Float(depth) * spacing
 
         for cube in cubes {
-            // March each cube toward the camera, wrapping around at the front.
-            var z = -totalDepth + (cube.phase * totalDepth + travel)
-                .truncatingRemainder(dividingBy: totalDepth)
-
-            // Keep the wrapped value in the visible negative-Z range.
-            if z > 0 { z -= totalDepth }
+            // March each cube toward the camera, recycling it to the back before
+            // it reaches the lens (nearest stays at `-nearLimit` so cubes never
+            // balloon into a screen-filling face / clip the near plane).
+            let nearLimit: Float = 2.0
+            let range = totalDepth - nearLimit
+            let z = -totalDepth + (cube.phase * range + travel)
+                .truncatingRemainder(dividingBy: range)
 
             gl.pushMatrix()
             gl.translate(cube.x, cube.y, z)
@@ -50,7 +51,7 @@ public final class CubeFieldScene: R4Scene {
             gl.scale(size, size, size)
 
             // Closer cubes are brighter; hue keyed to column position over time.
-            let near = max(0, min(1, (z + totalDepth) / totalDepth))
+            let near = max(0, min(1, (z + totalDepth) / range))
             let hue = Double(cube.x) * 0.08 + Double(audio.time) * 0.03
             let col = hsb(hue, 0.6, 0.25 + 0.75 * Double(near))
             gl.glColor(col.r, col.g, col.b, 1)

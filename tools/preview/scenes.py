@@ -35,12 +35,11 @@ def _cf_reset(st):
 def cubefield(gl, a, st):
     if 'cubes' not in st: _cf_reset(st)
     bass=a.band(0,0.15); st['travel']+=a.timepass*4.0*(1+bass)
-    td=st['totalDepth']
+    td=st['totalDepth']; nearLimit=2.0; rng=td-nearLimit
     for (x,y,phase) in st['cubes']:
-        z=-td+((phase*td+st['travel'])%td)
-        if z>0: z-=td
+        z=-td+((phase*rng+st['travel'])%rng)
         gl.push(); gl.translate(x,y,z); s=0.5+0.5*bass; gl.scale(s,s,s)
-        near=max(0,min(1,(z+td)/td)); c=hsb(x*0.08+a.time*0.03,0.6,0.25+0.75*near)
+        near=max(0,min(1,(z+td)/rng)); c=hsb(x*0.08+a.time*0.03,0.6,0.25+0.75*near)
         gl.color(*c,1); gl.cube(); gl.pop()
 
 def spectrum(gl, a, st):
