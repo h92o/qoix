@@ -1,9 +1,17 @@
 // fractal pyramid
 // -----------------------------------------------------------------------------
 // A raymarched, space-folding fractal lit with a cheap volumetric "glow".
-// Originally a Shadertoy shader; paste the body below into a new Shadertoy
-// "Image" buffer (it relies on the built-in iTime and iResolution uniforms).
-// For a standalone, no-account version see fractal_pyramid.html in this folder.
+// An orbiting camera circles a recursive, pyramid-like shape built by folding
+// space 8 times per sample; near-misses to the surface accumulate a depth-tinted
+// cyan -> magenta halo, giving a slowly breathing neon look.
+//
+// Author : xik  (https://www.shadertoy.com/user/xik)
+// Shader : https://www.shadertoy.com/view/XXXXXX   (TODO: paste URL after publishing)
+// License: GPL-3.0 (see repository LICENSE)
+//
+// Paste the body below into a new Shadertoy "Image" buffer; it relies on the
+// built-in iTime and iResolution uniforms. For a standalone, no-account version
+// with live sliders see fractal_pyramid.html in this folder.
 // -----------------------------------------------------------------------------
 
 // Color ramp: blends cyan-blue -> magenta as d goes 0 -> 1.
@@ -80,7 +88,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
 /** SHADERDATA
 {
     "title": "fractal pyramid",
-    "description": "",
+    "description": "Raymarched space-folding fractal with an orbiting camera and a cheap volumetric cyan-to-magenta glow.",
     "model": "car"
 }
 */
