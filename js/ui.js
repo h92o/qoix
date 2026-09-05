@@ -20,6 +20,7 @@ const UI = (() => {
 
   let kbOctave = 4;
   const pressedKeys = new Set();
+  let _grWaveformPeaks = null; // cached {min,max} buckets for the loaded granular sample
 
   // Piano layout: [semitone, isBlack, keyHint]
   const PIANO_MAP = [
@@ -178,6 +179,7 @@ const UI = (() => {
     if (FMEngine.getState().enabled) FMEngine.noteOn(midiNote, velocity);
     if (WTEngine.getState().enabled) WTEngine.noteOn(midiNote, velocity);
     if (SpectralFFT.getState().enabled) SpectralFFT.noteOn(midiNote, velocity);
+    if (GranularEngine.getState().enabled) GranularEngine.noteOn(midiNote, velocity);
     Recorder.recordNoteOn(midiNote, velocity);
     updateActiveNotesDisplay();
   }
@@ -187,6 +189,7 @@ const UI = (() => {
     FMEngine.noteOff(midiNote);
     WTEngine.noteOff(midiNote);
     SpectralFFT.noteOff(midiNote);
+    GranularEngine.noteOff(midiNote);
     Recorder.recordNoteOff(midiNote);
     updateActiveNotesDisplay();
   }
@@ -196,6 +199,7 @@ const UI = (() => {
     FMEngine.panic();
     WTEngine.panic();
     SpectralFFT.panic();
+    GranularEngine.panic();
     RandomGen.stop();
     $('rand-status').textContent = 'Stopped';
     updateActiveNotesDisplay();
@@ -1141,6 +1145,7 @@ const UI = (() => {
 
       // Drive mod matrix each frame
       Synth.applyModMatrix(dt);
+      drawGranularWaveform();
 
       const analyser = Synth.getAnalyser();
       if (!analyser) return;
@@ -1641,6 +1646,247 @@ const UI = (() => {
     bindSpectralRange('spectral-env-r', v => SpectralFFT.setEnv('release', v));
   }
 
+  // ── Granular Engine ─────────────────────────────────────────
+  function fmtGranular(id, v) {
+    v = parseFloat(v);
+    if (id.includes('sizespray') || id.includes('jitter') || id.includes('panspread') ||
+        id.includes('reverse')   || id.includes('position') || id.includes('env-s'))
+      return `${Math.round(v * 100)}%`;
+    if (id === 'gr-size')       return `${Math.round(v)}ms`;
+    if (id === 'gr-density')    return `${Math.round(v)}/s`;
+    if (id === 'gr-posspray')   return `${Math.round(v)}ms`;
+    if (id === 'gr-pitchspray') return `${v.toFixed(1)}st`;
+    if (id === 'gr-scan-period')return `${v.toFixed(1)}s`;
+    if (id.includes('env-a') || id.includes('env-d') || id.includes('env-r'))
+      return v < 1 ? `${Math.round(v * 1000)}ms` : `${v.toFixed(2)}s`;
+    return `${v}`;
+  }
+
+  function bindGranularRange(id, fn) {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      const v = parseFloat(el.value);
+      fn(v);
+      const vEl = $(id + '-v');
+      if (vEl) vEl.textContent = fmtGranular(id, el.value);
+    });
+  }
+
+  function bindGranularSeg(containerId, dataKey, fn) {
+    const el = $(containerId);
+    if (!el) return;
+    el.querySelectorAll('.seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        el.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        fn(btn.dataset[dataKey]);
+      });
+    });
+  }
+
+  function computeGranularPeaks(buffer, buckets = 400) {
+    const data = buffer.getChannelData(0);
+    const bucketSize = Math.max(1, Math.floor(data.length / buckets));
+    const peaks = new Array(buckets);
+    for (let i = 0; i < buckets; i++) {
+      const start = i * bucketSize;
+      const end = Math.min(data.length, start + bucketSize);
+      let min = 0, max = 0;
+      for (let j = start; j < end; j++) {
+        const v = data[j];
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      peaks[i] = { min, max };
+    }
+    return peaks;
+  }
+
+  function updateGranularSampleUI() {
+    const st = GranularEngine.getState();
+    const well     = $('gr-well');
+    const nameEl   = $('gr-sample-name');
+    const clearBtn = $('gr-clear-btn');
+    if (!well) return;
+    if (st.buffer) {
+      well.classList.add('has-sample');
+      if (nameEl) nameEl.textContent = `${st.sampleName} · ${st.buffer.duration.toFixed(1)}s`;
+      if (clearBtn) clearBtn.style.display = '';
+      _grWaveformPeaks = computeGranularPeaks(st.buffer);
+    } else {
+      well.classList.remove('has-sample');
+      if (nameEl) nameEl.textContent = '';
+      if (clearBtn) clearBtn.style.display = 'none';
+      _grWaveformPeaks = null;
+    }
+  }
+
+  function drawGranularWaveform() {
+    const canvas = $('gr-waveform');
+    const well   = $('gr-well');
+    if (!canvas || !well || well.offsetParent === null) return;
+
+    const w = well.clientWidth, h = well.clientHeight;
+    if (w === 0 || h === 0) return;
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+
+    const cx = canvas.getContext('2d');
+    cx.clearRect(0, 0, w, h);
+    if (!_grWaveformPeaks) return;
+
+    const mid = h / 2;
+    const n = _grWaveformPeaks.length;
+    cx.strokeStyle = '#7b86f5';
+    cx.lineWidth = Math.max(1, w / n);
+    cx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = (i / n) * w;
+      const { min, max } = _grWaveformPeaks[i];
+      cx.moveTo(x, mid + min * mid);
+      cx.lineTo(x, mid + max * mid);
+    }
+    cx.stroke();
+
+    const st = GranularEngine.getState();
+    if (st.source === 'sample' && st.buffer) {
+      const px = GranularEngine.getScanPosition() * w;
+      cx.strokeStyle = '#0a84ff';
+      cx.lineWidth = 2;
+      cx.beginPath();
+      cx.moveTo(px, 0);
+      cx.lineTo(px, h);
+      cx.stroke();
+    }
+  }
+
+  function loadGranularFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      GranularEngine.loadSample(e.target.result, file.name)
+        .then(updateGranularSampleUI)
+        .catch(err => alert('Could not load audio file: ' + err.message));
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function bindGranular() {
+    // Enable toggle: init GranularEngine lazily on first enable
+    const enableCb = $('gr-enabled');
+    if (enableCb) enableCb.addEventListener('change', () => {
+      const v = enableCb.checked;
+      if (v) { Synth.ensureContext(); GranularEngine.init(); }
+      GranularEngine.setEnabled(v);
+    });
+
+    // Grain source (segmented control)
+    bindGranularSeg('gr-source-seg', 'source', v => {
+      GranularEngine.setSource(v);
+      const show = v === 'oscillator';
+      const oscRow = $('gr-osc-wave-row');
+      const oscSeg = $('gr-osc-wave-seg');
+      if (oscRow) oscRow.style.display = show ? '' : 'none';
+      if (oscSeg) oscSeg.style.display = show ? '' : 'none';
+    });
+    bindGranularSeg('gr-osc-wave-seg',  'wave',     v => GranularEngine.setOscWave(v));
+    bindGranularSeg('gr-window-seg',    'window',   v => GranularEngine.setWindow(v));
+    bindGranularSeg('gr-scan-mode-seg', 'scanmode', v => GranularEngine.setScanMode(v));
+
+    // Grain parameters
+    bindGranularRange('gr-size',       v => GranularEngine.setGrainParam('size', v));
+    bindGranularRange('gr-sizespray',  v => GranularEngine.setGrainParam('sizeSpray', v));
+    bindGranularRange('gr-density',    v => GranularEngine.setGrainParam('density', v));
+    bindGranularRange('gr-jitter',     v => GranularEngine.setGrainParam('timingJitter', v));
+    bindGranularRange('gr-posspray',   v => GranularEngine.setGrainParam('positionSpray', v));
+    bindGranularRange('gr-pitchspray', v => GranularEngine.setGrainParam('pitchSpray', v));
+    bindGranularRange('gr-panspread',  v => GranularEngine.setGrainParam('panSpread', v));
+    bindGranularRange('gr-reverse',    v => GranularEngine.setGrainParam('reverse', v));
+
+    // Scan position (manual)
+    bindGranularRange('gr-position', v => GranularEngine.setPosition(v));
+
+    // Auto scan
+    const scanEnCb = $('gr-scan-enabled');
+    if (scanEnCb) scanEnCb.addEventListener('change', () => GranularEngine.setScanEnabled(scanEnCb.checked));
+    const freezeCb = $('gr-freeze');
+    if (freezeCb) freezeCb.addEventListener('change', () => GranularEngine.setFreeze(freezeCb.checked));
+    bindGranularRange('gr-scan-period', v => GranularEngine.setScanPeriod(v));
+
+    // Amplitude envelope
+    bindGranularRange('gr-env-a', v => GranularEngine.setEnv('attack',  v));
+    bindGranularRange('gr-env-d', v => GranularEngine.setEnv('decay',   v));
+    bindGranularRange('gr-env-s', v => GranularEngine.setEnv('sustain', v));
+    bindGranularRange('gr-env-r', v => GranularEngine.setEnv('release', v));
+
+    // Sample well: click-to-browse (empty) / drag-and-scrub (loaded) / drag-and-drop
+    const well = $('gr-well');
+    const fileInput = $('gr-file-input');
+    if (well && fileInput) {
+      let dragging = false;
+      const scrubTo = clientX => {
+        const rect = well.getBoundingClientRect();
+        const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        GranularEngine.setPosition(frac);
+        const posEl = $('gr-position'); if (posEl) posEl.value = frac;
+        const posV  = $('gr-position-v'); if (posV) posV.textContent = Math.round(frac * 100) + '%';
+      };
+
+      well.addEventListener('pointerdown', e => {
+        if (!well.classList.contains('has-sample')) { fileInput.click(); return; }
+        dragging = true;
+        well.setPointerCapture(e.pointerId);
+        scrubTo(e.clientX);
+      });
+      well.addEventListener('pointermove',   e => { if (dragging) scrubTo(e.clientX); });
+      well.addEventListener('pointerup',     () => { dragging = false; });
+      well.addEventListener('pointercancel', () => { dragging = false; });
+
+      well.addEventListener('dragover',  e => { e.preventDefault(); well.classList.add('drag-over'); });
+      well.addEventListener('dragleave', () => well.classList.remove('drag-over'));
+      well.addEventListener('drop', e => {
+        e.preventDefault();
+        well.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f) loadGranularFile(f);
+      });
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files[0]) loadGranularFile(fileInput.files[0]);
+        fileInput.value = '';
+      });
+    }
+
+    // Clear sample
+    const clearBtn = $('gr-clear-btn');
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+      GranularEngine.clearSample();
+      updateGranularSampleUI();
+    });
+
+    // Mic recording — granulate live input
+    const micBtn = $('gr-mic-btn');
+    if (micBtn) micBtn.addEventListener('click', () => {
+      if (GranularEngine.isRecording()) {
+        GranularEngine.stopRecording()
+          .then(updateGranularSampleUI)
+          .catch(err => alert('Recording failed: ' + err.message))
+          .finally(() => {
+            micBtn.classList.remove('recording');
+            micBtn.innerHTML = '&#127908; Record Mic';
+          });
+      } else {
+        Synth.ensureContext();
+        GranularEngine.startRecording()
+          .then(() => {
+            micBtn.classList.add('recording');
+            micBtn.innerHTML = '&#9679;&nbsp; Stop Recording';
+          })
+          .catch(err => alert('Microphone access failed: ' + err.message));
+      }
+    });
+
+    updateGranularSampleUI();
+  }
+
   // ── Init ──────────────────────────────────────────────────
   function init() {
     Synth.init();
@@ -1660,6 +1906,7 @@ const UI = (() => {
     bindRecorder();
     bindSpectral();
     bindMicrotonal();
+    bindGranular();
     syncUIToState();
     startVisualizer();
     drawEnvelope();
