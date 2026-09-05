@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "surge-midigen"
+version = "1.0.0"
+description = "MIDI generation for the Surge XT synthesizer: macros, MPE, Scala tuning, scene split"
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["midi", "surge-xt", "mpe", "microtonal", "scala", "generative"]
+classifiers = [
+    "Topic :: Multimedia :: Sound/Audio :: MIDI",
+    "Programming Language :: Python :: 3",
+]
+dependencies = []
+
+[project.scripts]
+surge-midigen = "surge_midigen.cli:main"
+
+[tool.setuptools]
+packages = ["surge_midigen"]
