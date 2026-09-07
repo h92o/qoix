@@ -37,6 +37,12 @@ const UI = (() => {
 
   function fmt(id, v) {
     v = parseFloat(v);
+    if (id.includes('panlfo')) return `${Math.round(v * 100)}%`;
+    if (/-width$/.test(id)) return `${Math.round(v * 100)}%`;
+    if (/-pan$/.test(id)) {
+      const pct = Math.round(Math.abs(v) * 100);
+      return pct === 0 ? 'C' : (v < 0 ? `L${pct}` : `R${pct}`);
+    }
     if (id.includes('level') || id.includes('sustain') || id.includes('mix') ||
         id.includes('damp')  || id.includes('density') || id.includes('notelen') ||
         id.includes('swing') || id.includes('depth') || id.includes('fm-index'))
@@ -288,6 +294,14 @@ const UI = (() => {
       const key = `osc${n}`;
       bindWaveGroup(`[data-oscfm="${n}"]`,  v => Synth.setOsc(key, 'fmFrom', v));
       bindRange(`osc${n}-fm-index`,         v => Synth.setOsc(key, 'fmIndex', parseFloat(v)));
+    });
+
+    // Per-OSC stereo (static pan, unison stereo width, LFO->Pan depth)
+    [1, 2, 3].forEach(n => {
+      const key = `osc${n}`;
+      bindRange(`osc${n}-pan`,    v => Synth.setOsc(key, 'pan', parseFloat(v)));
+      bindRange(`osc${n}-width`,  v => Synth.setOsc(key, 'stereoWidth', parseFloat(v)));
+      bindRange(`osc${n}-panlfo`, v => Synth.setOsc(key, 'panLfoDepth', parseFloat(v)));
     });
 
     // Per-OSC mix modes (osc2 and osc3)
@@ -1056,6 +1070,15 @@ const UI = (() => {
       sr(`osc${n}-filt-resonance`, fs.resonance);
       sr(`osc${n}-filt-lfodepth`,  fs.lfoDepth);
       sr(`osc${n}-filt-envamt`,    fs.envAmt);
+    });
+
+    // Per-osc stereo sync
+    [1, 2, 3].forEach(n => {
+      const os = s[`osc${n}`];
+      if (!os) return;
+      sr(`osc${n}-pan`,    os.pan);
+      sr(`osc${n}-width`,  os.stereoWidth);
+      sr(`osc${n}-panlfo`, os.panLfoDepth);
     });
 
     sc('noise-enabled', s.noise.enabled);
