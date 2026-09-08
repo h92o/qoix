@@ -245,7 +245,9 @@ const SpectralFFT = (() => {
     voice.oscs.forEach(o => { try { o.stop(stopTime); } catch(e) {} });
 
     setTimeout(() => {
-      activeVoices.delete(midiNote);
+      // Only remove this exact voice — a fast retrigger may already have
+      // replaced the map entry for this note with a fresh one.
+      if (activeVoices.get(midiNote) === voice) activeVoices.delete(midiNote);
       try { voice.preMix.disconnect(); } catch(e) {}
       try { voice.eigenOut.disconnect(); } catch(e) {}
       try { voice.ampEnv.disconnect(); } catch(e) {}

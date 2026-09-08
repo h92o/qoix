@@ -605,7 +605,9 @@ const Synth = (() => {
     // remain tracked so they can be hard-killed if needed.
     UI && UI.updateActiveNotes && UI.updateActiveNotes();
     setTimeout(() => {
-      activeVoices.delete(midiNote);
+      // Only remove this exact voice — a fast retrigger may already have
+      // replaced the map entry for this note with a fresh one.
+      if (activeVoices.get(midiNote) === voice) activeVoices.delete(midiNote);
       // Disconnect the remaining chain after release tail to free memory
       try { voice.oscMixer.disconnect(); } catch(e) {}
       try { voice.filter.disconnect();   } catch(e) {}
