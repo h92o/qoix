@@ -186,6 +186,7 @@ const UI = (() => {
     if (WTEngine.getState().enabled) WTEngine.noteOn(midiNote, velocity);
     if (SpectralFFT.getState().enabled) SpectralFFT.noteOn(midiNote, velocity);
     if (GranularEngine.getState().enabled) GranularEngine.noteOn(midiNote, velocity);
+    if (OP1Phase.getState().enabled) OP1Phase.noteOn(midiNote, velocity);
     Recorder.recordNoteOn(midiNote, velocity);
     updateActiveNotesDisplay();
   }
@@ -196,6 +197,7 @@ const UI = (() => {
     WTEngine.noteOff(midiNote);
     SpectralFFT.noteOff(midiNote);
     GranularEngine.noteOff(midiNote);
+    OP1Phase.noteOff(midiNote);
     Recorder.recordNoteOff(midiNote);
     updateActiveNotesDisplay();
   }
@@ -206,6 +208,7 @@ const UI = (() => {
     WTEngine.panic();
     SpectralFFT.panic();
     GranularEngine.panic();
+    OP1Phase.panic();
     RandomGen.stop();
     $('rand-status').textContent = 'Stopped';
     updateActiveNotesDisplay();
@@ -218,9 +221,20 @@ const UI = (() => {
   }
 
   // ── Computer keyboard input ───────────────────────────────
+  // Clicking a toggle label leaves its (visually hidden) checkbox
+  // focused, so blocking on "an INPUT has focus" silently killed
+  // note keys until you clicked elsewhere. Only block for controls
+  // that actually consume typed characters.
+  function isTextEntry(el) {
+    if (!el) return false;
+    const tag = el.tagName;
+    if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    return tag === 'INPUT' && !/^(checkbox|radio|range|button|submit|reset|file)$/i.test(el.type);
+  }
+
   function initKeyboardInput() {
     document.addEventListener('keydown', e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+      if (isTextEntry(e.target)) return;
       if (e.repeat) return;
 
       const k = e.key.toLowerCase();
@@ -957,8 +971,10 @@ const UI = (() => {
       const [type, idx] = sel.value.split(':');
       const p = type === 'user' ? loadUserPatches()[parseInt(idx)] : Presets[parseInt(idx)];
       if (!p) return;
-      Synth.loadPreset(p);
-      syncUIToState();
+      // A factory preset is a whole sound, so it also switches the other
+      // engines off; a user's own patch is restored exactly as saved.
+      Patch.apply(type === 'user' ? p : Patch.asFactory(p));
+      syncEverything();
       // Show delete button only for user patches
       if ($('delete-preset-btn')) $('delete-preset-btn').style.display = type === 'user' ? '' : 'none';
     });
@@ -967,8 +983,7 @@ const UI = (() => {
     saveBtn.addEventListener('click', () => {
       const name = prompt('Name this patch:', 'My Patch');
       if (!name || !name.trim()) return;
-      const snap = JSON.parse(JSON.stringify(Synth.getState()));
-      snap.name = name.trim();
+      const snap = Patch.collect(name);
       const user = loadUserPatches();
       user.push(snap);
       saveUserPatches(user);
@@ -994,9 +1009,8 @@ const UI = (() => {
     // Export current patch as a JSON file
     if ($('export-patch-btn')) {
       $('export-patch-btn').addEventListener('click', () => {
-        const snap = JSON.parse(JSON.stringify(Synth.getState()));
+        const snap = Patch.collect();
         const name = snap.name || 'qoix-patch';
-        snap.name = name;
         const blob = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -1021,8 +1035,8 @@ const UI = (() => {
             user.push(patch);
             saveUserPatches(user);
             rebuildOptions('user:' + (user.length - 1));
-            Synth.loadPreset(patch);
-            syncUIToState();
+            Patch.apply(patch);
+            syncEverything();
             if ($('delete-preset-btn')) $('delete-preset-btn').style.display = '';
           } catch(err) { alert('Could not load patch: ' + err.message); }
         };
@@ -1111,6 +1125,215 @@ const UI = (() => {
 
     const mvEl = $('master-vol-disp');
     if (mvEl) mvEl.textContent = `${Math.round(s.masterVolume * 100)}%`;
+  }
+
+  // ── Engine UI sync ────────────────────────────────────────
+  // syncUIToState covers the subtractive tab. Patches now carry every
+  // engine, so each tab needs its controls pushed back from state too.
+  function syncEngineUI() {
+    syncFMUI();
+    syncWavetableUI();
+    syncModMatrixUI();
+    syncSpectralUI();
+    syncMicrotonalUI();
+    syncGranularUI();
+    syncOP1UI();
+  }
+
+  function setRange(id, v, fmtFn) {
+    const el = $(id); if (!el) return;
+    el.value = v;
+    const vEl = $(id + '-v');
+    if (vEl && fmtFn) vEl.textContent = fmtFn(id, v);
+  }
+
+  function setCheck(id, v) { const el = $(id); if (el) el.checked = !!v; }
+
+  function syncFMUI() {
+    const f = FMEngine.getState();
+    setCheck('fm-enabled', f.enabled);
+
+    const algo = $('fm-algorithm');
+    if (algo) algo.value = f.algorithm;
+    drawFMAlgorithm(f.algorithm);
+
+    (f.operators || []).forEach((op, i) => {
+      document.querySelectorAll(`.fm-ratio[data-op="${i}"]`).forEach(el => { el.value = op.ratio; });
+      document.querySelectorAll(`.fm-ratio-v[data-op="${i}"]`).forEach(d => { d.textContent = op.ratio.toFixed(2); });
+
+      ['level', 'attack', 'decay', 'sustain', 'release'].forEach(param => {
+        const v = op[param];
+        if (typeof v !== 'number') return;
+        document.querySelectorAll(`.fm-${param}[data-op="${i}"]`).forEach(el => { el.value = v; });
+        const shown = (param === 'level' || param === 'sustain')
+          ? `${Math.round(v * 100)}%`
+          : v < 1 ? `${Math.round(v * 1000)}ms` : `${v.toFixed(2)}s`;
+        document.querySelectorAll(`.fm-${param}-v[data-op="${i}"]`).forEach(d => { d.textContent = shown; });
+      });
+    });
+  }
+
+  function syncWavetableUI() {
+    const w = WTEngine.getState();
+    setCheck('wt-enabled', w.enabled);
+
+    const a = $('wt-tableA'); if (a) a.value = w.tableA;
+    const b = $('wt-tableB'); if (b) b.value = w.tableB;
+
+    document.querySelectorAll('.wt-table-btn').forEach(btn =>
+      btn.classList.toggle('active', btn.textContent === w.tableA));
+
+    setRange('wt-position', w.position, () => `${Math.round(w.position * 100)}%`);
+    setRange('wt-level',    w.level,    () => `${Math.round(w.level * 100)}%`);
+    setRange('wt-octave',   w.octave,   () => `${w.octave > 0 ? '+' : ''}${w.octave}`);
+    setRange('wt-detune',   w.detune,   () => `${w.detune > 0 ? '+' : ''}${w.detune}`);
+
+    document.querySelectorAll('[data-wtmode]').forEach(btn =>
+      btn.classList.toggle('active', btn.dataset.wtmode === w.mode));
+    const tp = $('wt-table-panel');  if (tp) tp.style.display = w.mode === 'wavetable' ? '' : 'none';
+    const op = $('wt-oxford-panel'); if (op) op.style.display = w.mode === 'oxford'    ? '' : 'none';
+
+    // Oxford faders: slider, glowing bar height and readout all follow
+    const grid = $('harmonic-grid');
+    if (grid && Array.isArray(w.harmonics)) {
+      grid.querySelectorAll('.harmonic-col').forEach((col, i) => {
+        const v      = i < w.harmonics.length ? w.harmonics[i] : 0;
+        const slider = col.querySelector('.harm-slider');
+        const bar    = col.querySelector('.harm-bar');
+        const val    = col.querySelector('.val');
+        if (slider) slider.value = v;
+        if (bar)    bar.style.height = `${v * 100}%`;
+        if (val)    val.textContent  = `${Math.round(v * 100)}%`;
+      });
+    }
+
+    drawWavePreview();
+    drawOxfordSpectrum();
+  }
+
+  function syncModMatrixUI() {
+    // Every cell carries its own dot, slider and readout, so the table
+    // is cheapest to rebuild wholesale from the restored matrix.
+    const table = $('mod-matrix-table');
+    if (table) { table.innerHTML = ''; buildModMatrix(); }
+
+    const m = ModMatrix.getState();
+    if (!m.lfo2) return;
+    setRange('lfo2-rate',  m.lfo2.rate,  () => `${Number(m.lfo2.rate).toFixed(2)} Hz`);
+    setRange('lfo2-depth', m.lfo2.depth, () => `${Math.round(m.lfo2.depth * 100)}%`);
+    document.querySelectorAll('[data-osc="lfo2"]').forEach(btn =>
+      btn.classList.toggle('active', btn.dataset.wave === m.lfo2.wave));
+  }
+
+  function syncSpectralUI() {
+    const sp = SpectralFFT.getState();
+    setCheck('spectral-enabled', sp.enabled);
+    setRange('spectral-alpha', sp.alpha, fmtSpectral);
+
+    const chirp = $('spectral-chirp-btns');
+    if (chirp) chirp.querySelectorAll('.wb').forEach(b =>
+      b.classList.toggle('active', b.dataset.chirp === sp.chirpShape));
+
+    (sp.ops || []).forEach((op, i) => {
+      setCheck(`spectral-op${i}-en`, op.enabled);
+      setRange(`spectral-op${i}-ratio`, op.ratio,      fmtSpectral);
+      setRange(`spectral-op${i}-chirp`, op.chirpRatio, fmtSpectral);
+      setRange(`spectral-op${i}-level`, op.level,      fmtSpectral);
+    });
+
+    setRange('eigen-p1',  sp.eigen.p1,  fmtSpectral);
+    setRange('eigen-pm1', sp.eigen.pm1, fmtSpectral);
+    setRange('eigen-pi',  sp.eigen.pi,  fmtSpectral);
+    setRange('eigen-pmi', sp.eigen.pmi, fmtSpectral);
+
+    setRange('spectral-env-a', sp.env.attack,  fmtSpectral);
+    setRange('spectral-env-d', sp.env.decay,   fmtSpectral);
+    setRange('spectral-env-s', sp.env.sustain, fmtSpectral);
+    setRange('spectral-env-r', sp.env.release, fmtSpectral);
+  }
+
+  function syncMicrotonalUI() {
+    const mi = Microtonal.getState();
+    setCheck('micro-enabled', mi.enabled);
+
+    const scaleSel = $('micro-scale-select');
+    if (scaleSel) {
+      // A patch can carry a custom .scl that is not in the library —
+      // give it an option of its own so the selector can show it.
+      const known = Array.from(scaleSel.options).some(o => o.value === mi.scaleName);
+      if (!known && mi.scaleName) {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = mi.scaleName;
+        scaleSel.appendChild(opt);
+      }
+      scaleSel.value = mi.scaleName;
+    }
+
+    const rootSel = $('micro-root-select');
+    if (rootSel) rootSel.value = mi.rootNote;
+    const rootV = $('micro-root-v');
+    if (rootV) rootV.textContent = midiName(mi.rootNote);
+
+    updateMicroDisplay();
+  }
+
+  function syncGranularUI() {
+    if (typeof GranularEngine === 'undefined') return;
+    const g = GranularEngine.getState();
+    setCheck('gr-enabled', g.enabled);
+
+    // Segmented controls
+    const seg = (containerId, dataKey, value) => {
+      const el = $(containerId);
+      if (!el) return;
+      el.querySelectorAll('.seg-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset[dataKey] === value));
+    };
+    seg('gr-source-seg',    'source',   g.source);
+    seg('gr-osc-wave-seg',  'wave',     g.oscWave);
+    seg('gr-window-seg',    'window',   g.grain.window);
+    seg('gr-scan-mode-seg', 'scanmode', g.scan.mode);
+
+    // The oscillator wave row only applies to the oscillator source
+    const showOsc = g.source === 'oscillator';
+    const oscRow = $('gr-osc-wave-row');
+    const oscSeg = $('gr-osc-wave-seg');
+    if (oscRow) oscRow.style.display = showOsc ? '' : 'none';
+    if (oscSeg) oscSeg.style.display = showOsc ? '' : 'none';
+
+    setRange('gr-size',        g.grain.size,          fmtGranular);
+    setRange('gr-sizespray',   g.grain.sizeSpray,     fmtGranular);
+    setRange('gr-density',     g.grain.density,       fmtGranular);
+    setRange('gr-jitter',      g.grain.timingJitter,  fmtGranular);
+    setRange('gr-position',    g.grain.position,      fmtGranular);
+    setRange('gr-posspray',    g.grain.positionSpray, fmtGranular);
+    setRange('gr-pitchspray',  g.grain.pitchSpray,    fmtGranular);
+    setRange('gr-panspread',   g.grain.panSpread,     fmtGranular);
+    setRange('gr-reverse',     g.grain.reverse,       fmtGranular);
+    setRange('gr-scan-period', g.scan.period,         fmtGranular);
+
+    setCheck('gr-scan-enabled', g.scan.enabled);
+    setCheck('gr-freeze',       g.scan.freeze);
+
+    setRange('gr-env-a', g.env.attack,  fmtGranular);
+    setRange('gr-env-d', g.env.decay,   fmtGranular);
+    setRange('gr-env-s', g.env.sustain, fmtGranular);
+    setRange('gr-env-r', g.env.release, fmtGranular);
+
+    // A patch cannot carry the sample audio, so this reflects whatever
+    // is actually loaded rather than what the patch named.
+    updateGranularSampleUI();
+  }
+
+  function syncOP1UI() {
+    if (typeof OP1Phase === 'undefined') return;
+    setCheck('op1-enabled', OP1Phase.getState().enabled);
+    if (typeof OP1Panel !== 'undefined') OP1Panel.refreshKnobs();
+  }
+
+  function syncEverything() {
+    syncUIToState();
+    syncEngineUI();
   }
 
   // ── Envelope canvas draw ──────────────────────────────────
@@ -1930,6 +2153,7 @@ const UI = (() => {
     bindSpectral();
     bindMicrotonal();
     bindGranular();
+    OP1Panel.init();
     syncUIToState();
     startVisualizer();
     drawEnvelope();
@@ -2085,6 +2309,11 @@ const UI = (() => {
 
   document.addEventListener('DOMContentLoaded', init);
 
-  return { updateActiveNotes: updateActiveNotesDisplay };
+  return {
+    updateActiveNotes: updateActiveNotesDisplay,
+    // Push every control back from engine state — for anything that
+    // changes a patch without going through the handlers here.
+    syncAll: syncEverything,
+  };
 
 })();

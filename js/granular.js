@@ -417,6 +417,47 @@ const GranularEngine = (() => {
   function getActiveVoices() { return activeVoices; }
   function getScanPosition() { return state.grain.position; }
 
+  // ── Patch snapshot / restore ────────────────────────────────
+  // state.buffer is a live AudioBuffer and cannot be serialised, so a
+  // patch carries the granular *parameters* only. The sample name
+  // travels with it so the UI can say which sample the patch expects.
+  function getPatch() {
+    return JSON.parse(JSON.stringify({
+      enabled:    state.enabled,
+      source:     state.source,
+      oscWave:    state.oscWave,
+      sampleName: state.sampleName,
+      grain:      state.grain,
+      scan: {
+        enabled: state.scan.enabled,
+        mode:    state.scan.mode,
+        period:  state.scan.period,
+        freeze:  state.scan.freeze,
+      },
+      env: state.env,
+    }));
+  }
+
+  function loadState(s) {
+    if (!s) return;
+    panic();
+    if (s.source)  state.source  = s.source;
+    if (s.oscWave) state.oscWave = s.oscWave;
+    if (s.grain)   Object.assign(state.grain, s.grain);
+    if (s.env)     Object.assign(state.env, s.env);
+    if (s.scan) {
+      Object.assign(state.scan, s.scan);
+      state.scan._dir = 1;              // never restore internal scan direction
+    }
+
+    // A loaded sample survives a patch change untouched — the patch has
+    // no audio to replace it with. Only adopt the patch's sample name
+    // when nothing is loaded, so the UI can show what it was made with.
+    if (!state.buffer && typeof s.sampleName === 'string') state.sampleName = s.sampleName;
+
+    state.enabled = !!s.enabled;
+  }
+
   return {
     init, ensureInit, noteOn, noteOff, panic,
     loadSample, clearSample,
@@ -425,6 +466,7 @@ const GranularEngine = (() => {
     setGrainParam, setWindow, setPosition,
     setScanEnabled, setScanMode, setScanPeriod, setFreeze,
     setEnv,
+    getPatch, loadState,
     getState, getActiveVoices, getScanPosition,
   };
 
