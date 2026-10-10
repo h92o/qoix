@@ -93,6 +93,7 @@ final class CanvasView: UIView {
     // MARK: Strokes
 
     func beginStroke(id: AnyHashable, atViewPoint viewPoint: CGPoint) {
+        accessibilityValue = nil // Any earlier status ("Saved to Photos") no longer describes the canvas.
         let point = canvasPoint(forViewPoint: viewPoint)
         let brush = Brush(color: penColor, width: penWidthPoints * Double(canvasPixelsPerPoint))
         let painter = bitmap.beginStroke(brush: brush, at: point)

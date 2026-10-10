@@ -35,11 +35,17 @@ final class DrawAndSaveUITests: XCTestCase {
 
     /// Waits for the "Saved ..." message. If iOS asks for permission to add to Photos (the pre-approval in CI
     /// didn't take on this simulator), it answers Allow, so the test measures the app and not the setup.
-    private func waitForSaveConfirmation(in app: XCUIApplication, timeout: TimeInterval = 90) -> String? {
+    ///
+    /// The toast only stays up for a couple of seconds and a slow simulator can miss it, so the canvas's
+    /// accessibility value (which stays until you draw again) is checked too.
+    private func waitForSaveConfirmation(in app: XCUIApplication, canvas: XCUIElement, timeout: TimeInterval = 90) -> String? {
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let saved = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Saved'")).firstMatch
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
+            if let status = canvas.value as? String, status.hasPrefix("Saved") {
+                return status
+            }
             if saved.exists {
                 return saved.label
             }
@@ -101,8 +107,8 @@ final class DrawAndSaveUITests: XCTestCase {
         snap("1-drawn")
 
         app.typeKey("s", modifierFlags: .command)
-        let confirmation = waitForSaveConfirmation(in: app)
-        XCTAssertNotNil(confirmation, "saving should confirm with a message; \(describeScreen(of: app))")
+        let confirmation = waitForSaveConfirmation(in: app, canvas: canvas)
+        XCTAssertNotNil(confirmation, "saving should confirm with a message; canvas value \(String(describing: canvas.value)); \(describeScreen(of: app))")
         snap("2-saved")
 
         app.typeKey("z", modifierFlags: .command)

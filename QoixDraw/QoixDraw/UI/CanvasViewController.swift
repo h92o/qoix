@@ -221,8 +221,10 @@ final class CanvasViewController: UIViewController {
             flash()
             switch outcome {
             case .savedToPhotos:
+                canvasView?.accessibilityValue = "Saved to Photos"
                 toast.show("Saved to Photos", in: view)
             case .savedToFiles(_, let photosAccessDenied):
+                canvasView?.accessibilityValue = "Saved to Files"
                 toast.show("Saved to Files (Photos access is off)", in: view, duration: 3)
                 if photosAccessDenied {
                     offerPhotosSettings()
@@ -233,6 +235,7 @@ final class CanvasViewController: UIViewController {
             }
         case .failure:
             haptics.notificationOccurred(.error)
+            canvasView?.accessibilityValue = "Save failed"
             toast.show("Couldn't save the drawing", in: view, duration: 3)
         }
     }
