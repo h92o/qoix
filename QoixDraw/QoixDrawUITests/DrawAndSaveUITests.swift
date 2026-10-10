@@ -33,6 +33,38 @@ final class DrawAndSaveUITests: XCTestCase {
         from.press(forDuration: 0.05, thenDragTo: to)
     }
 
+    /// Waits for the "Saved ..." message. If iOS asks for permission to add to Photos (the pre-approval in CI
+    /// didn't take on this simulator), it answers Allow, so the test measures the app and not the setup.
+    private func waitForSaveConfirmation(in app: XCUIApplication, timeout: TimeInterval = 90) -> String? {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let saved = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Saved'")).firstMatch
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if saved.exists {
+                return saved.label
+            }
+            let alert = springboard.alerts.firstMatch
+            if alert.exists {
+                let allow = alert.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Allow' AND NOT label CONTAINS[c] \"Don\"")).firstMatch
+                if allow.exists {
+                    allow.tap()
+                }
+            }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        return nil
+    }
+
+    /// One line describing what is on screen, for failure messages.
+    private func describeScreen(of app: XCUIApplication) -> String {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let texts = app.staticTexts.allElementsBoundByIndex.prefix(8).map(\.label)
+        let alerts = springboard.alerts.allElementsBoundByIndex.map { alert in
+            "\(alert.label) \(alert.buttons.allElementsBoundByIndex.map(\.label))"
+        }
+        return "app state \(app.state.rawValue); texts \(texts); system alerts \(alerts)"
+    }
+
     func testTheCanvasFillsTheWholeScreen() throws {
         let (app, canvas) = launchApp()
         XCTAssertTrue(canvas.waitForExistence(timeout: 30), "the drawing canvas should be on screen")
@@ -69,8 +101,8 @@ final class DrawAndSaveUITests: XCTestCase {
         snap("1-drawn")
 
         app.typeKey("s", modifierFlags: .command)
-        let saved = app.staticTexts["Saved to Photos"]
-        XCTAssertTrue(saved.waitForExistence(timeout: 30), "saving should confirm with a message")
+        let confirmation = waitForSaveConfirmation(in: app)
+        XCTAssertNotNil(confirmation, "saving should confirm with a message; \(describeScreen(of: app))")
         snap("2-saved")
 
         app.typeKey("z", modifierFlags: .command)

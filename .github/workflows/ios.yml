@@ -103,7 +103,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: screenshots-${{ matrix.runner }}
           path: |
@@ -112,7 +112,14 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: App logs from the simulator
+        if: always()
+        run: |
+          xcrun simctl spawn "${{ steps.sim.outputs.udid }}" log show --style compact --info --debug --last 30m \
+            --predicate 'subsystem == "app.qoix.draw"' 2>&1 | tail -n 60 || true
+
       - name: Build for a real iPhone (Release, unsigned)
+        if: ${{ !cancelled() }}
         run: |
           set -o pipefail
           xcodebuild build \

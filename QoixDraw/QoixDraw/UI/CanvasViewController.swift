@@ -1,7 +1,10 @@
+import os
 import UIKit
 
 /// The app's one screen: a full-screen canvas. Volume Down saves the drawing.
 final class CanvasViewController: UIViewController {
+    private static let log = Logger(subsystem: "app.qoix.draw", category: "save")
+
     private var canvasView: CanvasView?
     private let toast = ToastView()
     private let volumeObserver = VolumeButtonObserver()
@@ -132,6 +135,7 @@ final class CanvasViewController: UIViewController {
     }
 
     @objc private func saveCommand() {
+        Self.log.debug("save requested by keyboard shortcut")
         saveDrawing()
     }
 
@@ -180,10 +184,17 @@ final class CanvasViewController: UIViewController {
 
     /// Saves the current drawing. Called for Volume Down (and ⌘S in the Simulator).
     func saveDrawing() {
-        guard let canvasView else { return }
+        guard let canvasView else {
+            Self.log.debug("save ignored: no canvas yet")
+            return
+        }
         let now = Date()
-        guard !isSaving, now.timeIntervalSince(lastSaveRequest) > AppConfig.saveCooldown else { return }
+        guard !isSaving, now.timeIntervalSince(lastSaveRequest) > AppConfig.saveCooldown else {
+            Self.log.debug("save ignored: one is already in progress or it is too soon after the last")
+            return
+        }
         guard !canvasView.drawing.isEmpty else {
+            Self.log.debug("save ignored: nothing drawn")
             toast.show("Draw something first", in: view)
             return
         }
@@ -192,6 +203,7 @@ final class CanvasViewController: UIViewController {
             return
         }
 
+        Self.log.debug("saving \(image.width, privacy: .public) x \(image.height, privacy: .public) px")
         isSaving = true
         lastSaveRequest = now
         haptics.prepare()
@@ -202,6 +214,7 @@ final class CanvasViewController: UIViewController {
 
     private func finishSaving(_ result: Result<SaveOutcome, SaveError>) {
         isSaving = false
+        Self.log.debug("save finished: \(String(describing: result), privacy: .public)")
         switch result {
         case .success(let outcome):
             haptics.notificationOccurred(.success)
