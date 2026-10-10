@@ -30,7 +30,7 @@ jobs:
       matrix:
         runner: [macos-26]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Toolchain
         run: |
@@ -105,5 +105,5 @@ jobs:
             echo "--- warnings"
             grep -E "warning:" "$log" | sort -u | head -n 60 || true
             echo "--- test totals"
-            grep -E "Executed [0-9]+ tests" "$log" | tail -n 3 || true
+            grep -E "Executed [0-9]+ tests?" "$log" | tail -n 3 || true
           done
