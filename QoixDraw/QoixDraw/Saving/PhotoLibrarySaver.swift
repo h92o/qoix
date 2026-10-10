@@ -1,5 +1,6 @@
 import Foundation
 import Photos
+import UniformTypeIdentifiers
 
 enum PhotoSaveError: Error, Equatable {
     /// The user has not allowed (or iOS restricts) adding to the photo library.
@@ -24,6 +25,7 @@ struct PhotoLibrarySaver: PhotoSaving {
             PHPhotoLibrary.shared().performChanges({
                 let options = PHAssetResourceCreationOptions()
                 options.originalFilename = filename
+                options.uniformTypeIdentifier = UTType.png.identifier
                 PHAssetCreationRequest.forAsset().addResource(with: .photo, data: data, options: options)
             }, completionHandler: { success, error in
                 if success {
