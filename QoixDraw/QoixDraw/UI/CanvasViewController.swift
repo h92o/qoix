@@ -26,7 +26,8 @@ final class CanvasViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(white: 0.1, alpha: 1)
+        // Same color as the canvas, so there is no dark flash while the canvas is being created at launch.
+        view.backgroundColor = UIColor(cgColor: AppConfig.canvasBackground.cgColor)
         view.isMultipleTouchEnabled = true
 
         volumeObserver.onEvent = { [weak self] event in
