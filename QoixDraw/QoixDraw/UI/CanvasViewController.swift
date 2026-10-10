@@ -76,10 +76,50 @@ final class CanvasViewController: UIViewController {
         true
     }
 
-    /// Hooking the canvas's history in here is what makes shake-to-undo and the three-finger undo/redo
-    /// gestures work with no extra UI.
+    /// Hooking the canvas's history in here is what makes the three-finger undo/redo gestures and ⌘Z work with no
+    /// extra UI (the shake menu below uses the same history).
     override var undoManager: UndoManager? {
         canvasView?.history
+    }
+
+    /// Shaking the phone opens a small menu: undo, redo, or clear the canvas. (Handled here rather than by the
+    /// system's shake-to-undo alert, which has no way to clear.)
+    override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+        guard motion == .motionShake else {
+            super.motionEnded(motion, with: event)
+            return
+        }
+        presentShakeMenu()
+    }
+
+    private func presentShakeMenu() {
+        guard let canvasView, presentedViewController == nil else { return }
+        let history = canvasView.history
+        let items = ShakeMenu.items(canUndo: history.canUndo, canRedo: history.canRedo, canClear: !canvasView.drawing.isEmpty)
+        guard !items.isEmpty else { return }
+
+        let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        for item in items {
+            switch item {
+            case .undo:
+                sheet.addAction(UIAlertAction(title: history.undoMenuItemTitle, style: .default) { _ in
+                    history.undo()
+                })
+            case .redo:
+                sheet.addAction(UIAlertAction(title: history.redoMenuItemTitle, style: .default) { _ in
+                    history.redo()
+                })
+            case .clearCanvas:
+                sheet.addAction(UIAlertAction(title: "Clear Canvas", style: .destructive) { [weak canvasView] _ in
+                    canvasView?.startNewCanvas()
+                })
+            }
+        }
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        // Only used on iPad, where action sheets are popovers.
+        sheet.popoverPresentationController?.sourceView = view
+        sheet.popoverPresentationController?.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+        present(sheet, animated: true)
     }
 
     /// Handy in the Simulator (which has no volume buttons): ⌘S saves, ⌘N starts a new canvas.
@@ -124,6 +164,9 @@ final class CanvasViewController: UIViewController {
     }
 
     private func handleVolumeEvent(_ event: VolumeButtonObserver.Event) {
+        if AppConfig.showVolumePressMessages {
+            toast.show(event == .volumeDown ? "Volume Down detected" : "Volume Up detected", in: view, duration: 1)
+        }
         switch event {
         case .volumeDown:
             saveDrawing()

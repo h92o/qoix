@@ -257,3 +257,26 @@ final class CanvasViewControllerTests: XCTestCase {
         XCTAssertEqual(canvas.drawing.strokes.count, 1, "nothing was saved, so nothing may be cleared")
     }
 }
+
+final class ShakeMenuTests: XCTestCase {
+    func testABlankCanvasWithNoHistoryOffersNothing() {
+        XCTAssertEqual(ShakeMenu.items(canUndo: false, canRedo: false, canClear: false), [])
+    }
+
+    func testADrawingOffersUndoAndClear() {
+        XCTAssertEqual(ShakeMenu.items(canUndo: true, canRedo: false, canClear: true), [.undo, .clearCanvas])
+    }
+
+    func testAfterUndoingEverythingRedoIsOfferedButClearIsNot() {
+        XCTAssertEqual(ShakeMenu.items(canUndo: false, canRedo: true, canClear: false), [.redo])
+    }
+
+    func testEverythingAtOnce() {
+        XCTAssertEqual(ShakeMenu.items(canUndo: true, canRedo: true, canClear: true), [.undo, .redo, .clearCanvas])
+    }
+
+    func testAfterSavingAndClearingTheOldDrawingCanBeBroughtBack() {
+        // Saved -> canvas cleared: nothing to clear, but the clear itself can be undone.
+        XCTAssertEqual(ShakeMenu.items(canUndo: true, canRedo: false, canClear: false), [.undo])
+    }
+}

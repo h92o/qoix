@@ -1,5 +1,6 @@
 import AVFoundation
 import MediaPlayer
+import os
 import UIKit
 
 /// Turns the hardware volume buttons into events.
@@ -20,6 +21,8 @@ final class VolumeButtonObserver {
 
     /// Called on the main thread for every press.
     var onEvent: ((Event) -> Void)?
+
+    private static let log = Logger(subsystem: "app.qoix.draw", category: "volume")
 
     private let session: AVAudioSession
     private var detector: VolumeButtonDetector
@@ -60,6 +63,7 @@ final class VolumeButtonObserver {
         // readings are adopted rather than interpreted.
         detector = VolumeButtonDetector(baseline: session.outputVolume)
         settleUntil = Date().addingTimeInterval(0.6)
+        Self.log.debug("listening; volume is \(self.detector.baseline, privacy: .public)")
         observation = session.observe(\.outputVolume, options: [.new]) { [weak self] _, change in
             guard let volume = change.newValue else { return }
             Task { @MainActor [weak self] in
@@ -85,15 +89,22 @@ final class VolumeButtonObserver {
     private func handle(volume: Float) {
         guard isRunning else { return }
         if Date() < settleUntil {
+            Self.log.debug("settling; adopted volume \(volume, privacy: .public)")
             detector.rebase(to: volume)
             return
         }
-        guard let press = detector.ingest(volume) else { return }
+        let baseline = detector.baseline
+        guard let press = detector.ingest(volume) else {
+            Self.log.debug("volume \(volume, privacy: .public): drift or echo, no press")
+            return
+        }
 
         // Undo the press so the user's volume is untouched; if that is impossible, follow the new level.
-        if !restoreVolume(to: detector.baseline) {
+        let restored = restoreVolume(to: detector.baseline)
+        if !restored {
             detector.rebase(to: volume)
         }
+        Self.log.debug("press \(String(describing: press), privacy: .public): \(baseline, privacy: .public) -> \(volume, privacy: .public), restored: \(restored, privacy: .public)")
         onEvent?(press == .down ? .volumeDown : .volumeUp)
     }
 

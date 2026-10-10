@@ -28,9 +28,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-26]
+        include:
+          - runner: macos-26
+            xcode: ''            # the image's default (Xcode 26.x)
+          - runner: macos-15
+            xcode: '16.4'        # the oldest Xcode the README promises
     steps:
       - uses: actions/checkout@v5
+
+      - name: Select Xcode
+        if: matrix.xcode != ''
+        run: sudo xcode-select -s "/Applications/Xcode_${{ matrix.xcode }}.app"
 
       - name: Toolchain
         run: |
@@ -43,6 +51,7 @@ jobs:
         run: |
           python3 - <<'PY' > "$RUNNER_TEMP/udid.txt"
           import json, re, subprocess, sys
+          sdk_major = int(subprocess.check_output(["xcrun", "--sdk", "iphonesimulator", "--show-sdk-version"]).decode().split(".")[0])
           data = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"]))["devices"]
           best = None
           for runtime, devices in data.items():
@@ -50,6 +59,8 @@ jobs:
               if not m:
                   continue
               ver = (int(m.group(1)), int(m.group(2)))
+              if ver[0] > sdk_major:
+                  continue  # a newer runtime than the selected Xcode can drive
               for d in devices:
                   if not d.get("isAvailable", True) or not d["name"].startswith("iPhone"):
                       continue
