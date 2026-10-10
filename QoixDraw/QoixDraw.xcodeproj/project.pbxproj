@@ -1,0 +1,391 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		CA2B2F4AB64703D516C1F5BA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4EF22B38E3EB8861757C9700 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2447B236C268EE1C6ED0AD7;
+			remoteInfo = QoixDraw;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		964C60CF19E9E02693E6D27B /* QoixDraw.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QoixDraw.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A06A6328A49E8D5917DA2974 /* QoixDrawTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QoixDrawTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		9DF2CC2BD519E2CF9BFDAF2C /* QoixDraw */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = QoixDraw;
+			sourceTree = "<group>";
+		};
+		4E0E8E904CCFF7F50A35144F /* QoixDrawTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = QoixDrawTests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1AD7F105F3BF75A18BEF94B8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BDC6FAE8ED1903EDEE2470EA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		469E293394E7671E3A93BE29 = {
+			isa = PBXGroup;
+			children = (
+				9DF2CC2BD519E2CF9BFDAF2C /* QoixDraw */,
+				4E0E8E904CCFF7F50A35144F /* QoixDrawTests */,
+				EF296C2303E8F88AA0201AA4 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		EF296C2303E8F88AA0201AA4 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				964C60CF19E9E02693E6D27B /* QoixDraw.app */,
+				A06A6328A49E8D5917DA2974 /* QoixDrawTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D2447B236C268EE1C6ED0AD7 /* QoixDraw */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C57EBA2B28833EA83B51E9FF /* Build configuration list for PBXNativeTarget "QoixDraw" */;
+			buildPhases = (
+				15A1947E3C46196AC36F0B39 /* Sources */,
+				1AD7F105F3BF75A18BEF94B8 /* Frameworks */,
+				CE7B0A4687A79AFA83AF056F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				9DF2CC2BD519E2CF9BFDAF2C /* QoixDraw */,
+			);
+			name = QoixDraw;
+			packageProductDependencies = (
+			);
+			productName = QoixDraw;
+			productReference = 964C60CF19E9E02693E6D27B /* QoixDraw.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A7368AE1C7CBA2974E16A85F /* QoixDrawTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 933E3CE3F5FA3CA43896E8A4 /* Build configuration list for PBXNativeTarget "QoixDrawTests" */;
+			buildPhases = (
+				D680F61C602A73A931C0DCCC /* Sources */,
+				BDC6FAE8ED1903EDEE2470EA /* Frameworks */,
+				E2405B903F936E679A07FA87 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CC919B6F4A0014857A7361A1 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				4E0E8E904CCFF7F50A35144F /* QoixDrawTests */,
+			);
+			name = QoixDrawTests;
+			packageProductDependencies = (
+			);
+			productName = QoixDrawTests;
+			productReference = A06A6328A49E8D5917DA2974 /* QoixDrawTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4EF22B38E3EB8861757C9700 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					D2447B236C268EE1C6ED0AD7 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					A7368AE1C7CBA2974E16A85F = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = D2447B236C268EE1C6ED0AD7;
+					};
+				};
+			};
+			buildConfigurationList = A5214FB4E288D543FC8EC59B /* Build configuration list for PBXProject "QoixDraw" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 469E293394E7671E3A93BE29;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = EF296C2303E8F88AA0201AA4 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D2447B236C268EE1C6ED0AD7 /* QoixDraw */,
+				A7368AE1C7CBA2974E16A85F /* QoixDrawTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CE7B0A4687A79AFA83AF056F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E2405B903F936E679A07FA87 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		15A1947E3C46196AC36F0B39 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D680F61C602A73A931C0DCCC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		CC919B6F4A0014857A7361A1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2447B236C268EE1C6ED0AD7 /* QoixDraw */;
+			targetProxy = CA2B2F4AB64703D516C1F5BA /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		18685B07F1474B53FDF38608 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F809B9084A4B5D86C3107BBE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		9DB54DAFEBC46618EB9F896D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "QOIX Draw";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "QOIX Draw saves the pictures you draw to your photo library.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIFileSharingEnabled = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.qoix.draw;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		174449BBB5BBDB78A4E84C03 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "QOIX Draw";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "QOIX Draw saves the pictures you draw to your photo library.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIFileSharingEnabled = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.qoix.draw;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		0A9EDDD30C4A7BA1DAC80A0E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.qoix.draw.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/QoixDraw.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/QoixDraw";
+			};
+			name = Debug;
+		};
+		C08D48F3CA3A8F07C9F36253 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.qoix.draw.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/QoixDraw.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/QoixDraw";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A5214FB4E288D543FC8EC59B /* Build configuration list for PBXProject "QoixDraw" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18685B07F1474B53FDF38608 /* Debug */,
+				F809B9084A4B5D86C3107BBE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C57EBA2B28833EA83B51E9FF /* Build configuration list for PBXNativeTarget "QoixDraw" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9DB54DAFEBC46618EB9F896D /* Debug */,
+				174449BBB5BBDB78A4E84C03 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		933E3CE3F5FA3CA43896E8A4 /* Build configuration list for PBXNativeTarget "QoixDrawTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0A9EDDD30C4A7BA1DAC80A0E /* Debug */,
+				C08D48F3CA3A8F07C9F36253 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4EF22B38E3EB8861757C9700 /* Project object */;
+}

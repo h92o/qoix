@@ -1,0 +1,109 @@
+name: QOIX Draw (iOS)
+
+# Compiles the iPhone drawing app and runs its unit tests on a macOS runner.
+# Only runs when the app (or this workflow) changes, so the synth is unaffected.
+on:
+  push:
+    paths:
+      - 'QoixDraw/**'
+      - '.github/workflows/ios.yml'
+  pull_request:
+    paths:
+      - 'QoixDraw/**'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & test (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-26]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+          swift --version
+
+      - name: Pick an iPhone simulator
+        id: sim
+        run: |
+          python3 - <<'PY' > "$RUNNER_TEMP/udid.txt"
+          import json, re, subprocess, sys
+          data = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"]))["devices"]
+          best = None
+          for runtime, devices in data.items():
+              m = re.search(r"iOS-(\d+)-(\d+)", runtime)
+              if not m:
+                  continue
+              ver = (int(m.group(1)), int(m.group(2)))
+              for d in devices:
+                  if not d.get("isAvailable", True) or not d["name"].startswith("iPhone"):
+                      continue
+                  score = (ver, 1 if re.fullmatch(r"iPhone \d+", d["name"]) else 0, d["name"])
+                  if best is None or score > best[0]:
+                      best = (score, d["udid"], d["name"], runtime)
+          if best is None:
+              sys.exit("no iPhone simulator available")
+          print(best[1])
+          print("using %s (%s)" % (best[2], best[3]), file=sys.stderr)
+          PY
+          echo "udid=$(cat "$RUNNER_TEMP/udid.txt")" >> "$GITHUB_OUTPUT"
+
+      - name: Build and run unit tests (simulator)
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project QoixDraw/QoixDraw.xcodeproj \
+            -scheme QoixDraw \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee "$RUNNER_TEMP/xcodebuild-test.log"
+
+      - name: Build for a real iPhone (Release, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project QoixDraw/QoixDraw.xcodeproj \
+            -scheme QoixDraw \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedDataDevice" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee "$RUNNER_TEMP/xcodebuild-device.log" | tail -n 5
+
+      - name: Built Info.plist
+        if: always()
+        run: |
+          plist="$RUNNER_TEMP/DerivedData/Build/Products/Debug-iphonesimulator/QoixDraw.app/Info.plist"
+          [ -f "$plist" ] && plutil -p "$plist" || echo "no Info.plist built"
+
+      - name: Errors and test summary
+        if: always()
+        run: |
+          for log in "$RUNNER_TEMP/xcodebuild-test.log" "$RUNNER_TEMP/xcodebuild-device.log"; do
+            [ -f "$log" ] || continue
+            echo "=============== $(basename "$log")"
+            echo "--- errors"
+            grep -E "error:|\*\* (BUILD|TEST) (FAILED|SUCCEEDED)" "$log" | sort -u | head -n 80 || true
+            echo "--- failing tests"
+            grep -E "Test Case .* failed|: error: -\[" "$log" | head -n 60 || true
+            echo "--- warnings"
+            grep -E "warning:" "$log" | sort -u | head -n 60 || true
+            echo "--- test totals"
+            grep -E "Executed [0-9]+ tests" "$log" | tail -n 3 || true
+          done
