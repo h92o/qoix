@@ -150,6 +150,7 @@ final class CanvasViewController: UIViewController {
 
         isSaving = true
         lastSaveRequest = now
+        haptics.prepare()
         saver.save(image: image, date: now) { [weak self] result in
             self?.finishSaving(result)
         }

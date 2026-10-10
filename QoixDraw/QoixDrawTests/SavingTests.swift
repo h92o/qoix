@@ -40,7 +40,7 @@ final class DocumentsSaverTests: XCTestCase {
     func testWritesTheFileAndCreatesTheFolder() throws {
         let folder = makeTemporaryFolder()
         let url = try DocumentsSaver(directory: folder).save(Data([1, 2, 3]), filename: "a.png")
-        XCTAssertEqual(url.deletingLastPathComponent().standardizedFileURL, folder.standardizedFileURL)
+        XCTAssertEqual(url.deletingLastPathComponent().standardizedFileURL.path, folder.standardizedFileURL.path)
         XCTAssertEqual(url.lastPathComponent, "a.png")
         XCTAssertEqual(try Data(contentsOf: url), Data([1, 2, 3]))
     }

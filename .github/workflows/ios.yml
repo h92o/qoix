@@ -63,16 +63,43 @@ jobs:
           PY
           echo "udid=$(cat "$RUNNER_TEMP/udid.txt")" >> "$GITHUB_OUTPUT"
 
-      - name: Build and run unit tests (simulator)
+      - name: Boot the simulator and pre-approve Photos for the app
+        run: |
+          xcrun simctl boot "${{ steps.sim.outputs.udid }}" || true
+          xcrun simctl bootstatus "${{ steps.sim.outputs.udid }}" -b
+          xcrun simctl privacy "${{ steps.sim.outputs.udid }}" grant photos-add app.qoix.draw || true
+
+      - name: Build and run unit + UI tests (simulator)
         run: |
           set -o pipefail
+          mkdir -p /tmp/qoixdraw-shots
           xcodebuild test \
             -project QoixDraw/QoixDraw.xcodeproj \
             -scheme QoixDraw \
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/Results.xcresult" \
+            -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee "$RUNNER_TEMP/xcodebuild-test.log"
+
+      - name: Collect screenshots
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/attachments"
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/Results.xcresult" --output-path "$RUNNER_TEMP/attachments" || true
+          ls -la /tmp/qoixdraw-shots "$RUNNER_TEMP/attachments" || true
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.runner }}
+          path: |
+            /tmp/qoixdraw-shots
+            ${{ runner.temp }}/attachments
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Build for a real iPhone (Release, unsigned)
         run: |

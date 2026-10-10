@@ -41,6 +41,17 @@
                   ReferencedContainer = "container:QoixDraw.xcodeproj">
                </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+               <BuildableReference
+                  BuildableIdentifier = "primary"
+                  BlueprintIdentifier = "87A7B249215729E9790728A9"
+                  BuildableName = "QoixDrawUITests.xctest"
+                  BlueprintName = "QoixDrawUITests"
+                  ReferencedContainer = "container:QoixDraw.xcodeproj">
+               </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

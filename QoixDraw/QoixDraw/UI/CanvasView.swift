@@ -50,6 +50,7 @@ final class CanvasView: UIView {
         layer.contentsGravity = .resizeAspect
 
         isAccessibilityElement = true
+        accessibilityIdentifier = "canvas"
         accessibilityLabel = "Drawing canvas"
         accessibilityHint = "Touch and drag to draw. Press Volume Down to save."
         accessibilityTraits = .allowsDirectInteraction
