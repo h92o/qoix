@@ -86,6 +86,11 @@ final class StrokeBuilder {
         guard !isFinished else { return }
         isFinished = true
 
+        if steps.count == 1 {
+            // A tap, not a stroke: a dot at full size, not the pointed start of a stroke that never went anywhere.
+            steps[0].scale = 1
+        }
+
         // Each catch-up step closes half of the remaining gap, however much smoothing the brush has, so the
         // stroke always ends where the finger lifted.
         let end = lastRaw.cgPoint

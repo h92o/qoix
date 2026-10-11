@@ -208,6 +208,21 @@ final class StrokeBuilderTests: XCTestCase {
         }
     }
 
+    func testATapIsAFullSizeDotEvenForABrushThatTapersIn() {
+        let dynamics = Dynamics(taperIn: 30, startScale: 0.2, taperOut: 40, endScale: 0.1)
+        let brush = Brush(color: .black, nib: Nib.round(diameter: 20), dynamics: dynamics)
+        let result = steps(of: brush, [StrokePoint(x: 50, y: 50)])
+        XCTAssertEqual(result.count, 1)
+        XCTAssertEqual(result[0].scale, 1, accuracy: 0.000001)
+    }
+
+    func testAStrokeThatMovesStillStartsSmallWhenTheBrushTapersIn() {
+        let dynamics = Dynamics(taperIn: 30, startScale: 0.2)
+        let brush = Brush(color: .black, nib: Nib.round(diameter: 20), dynamics: dynamics)
+        let result = steps(of: brush, linePoints(from: CGPoint(x: 10, y: 20), to: CGPoint(x: 100, y: 20)))
+        XCTAssertEqual(result[0].scale, 0.2, accuracy: 0.000001)
+    }
+
     func testADotGetsNoTail() {
         let dynamics = Dynamics(taperOut: 40, endScale: 0.1)
         let brush = Brush(color: .black, nib: Nib.round(diameter: 20), dynamics: dynamics)
