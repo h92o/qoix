@@ -3,39 +3,37 @@ import Foundation
 
 /// A fixed-size RGBA pixel buffer that strokes are painted into.
 ///
-/// There are two layers of pixels, both in canvas pixels with the origin at the top-left corner (y grows
-/// downward):
+/// Pixels are in canvas pixels with the origin at the top-left corner (y grows downward). There are two layers:
 /// - the *committed* layer holds the finished picture, including finished chunks of strokes still being drawn;
-/// - the *live* layer is transparent and holds only the part of the strokes in progress that isn't committed yet.
-///   It is redrawn every frame, which is what lets a stroke be anti-aliased as a whole.
+/// - the *live* layer is a small transparent bitmap that covers only the area touched by the part of the strokes
+///   in progress that isn't committed yet. It is redrawn every frame, which is what lets a stroke be anti-aliased
+///   as a whole, and being small keeps each frame cheap however large the canvas is.
 final class BitmapCanvas {
     let spec: CanvasSpec
     let background: RGBAColor
     private let base: CGContext
-    private let live: CGContext
-    /// The area of the live layer that currently has anything drawn in it.
-    private var liveArea: CGRect = .null
+    private var liveContext: CGContext?
+    /// Where the live layer sits on the canvas (whole canvas pixels), or `.null` when nothing is being drawn.
+    private(set) var liveRect: CGRect = .null
     /// Goes up every time the committed pixels change, so whoever shows them knows when to refresh.
     private(set) var baseVersion = 0
 
     init?(spec: CanvasSpec, background: RGBAColor = .white) {
-        guard let base = BitmapCanvas.makeContext(for: spec, flipped: true),
-              let live = BitmapCanvas.makeContext(for: spec, flipped: true) else {
+        guard let base = BitmapCanvas.makeContext(width: spec.width, height: spec.height, flipped: true) else {
             return nil
         }
         self.spec = spec
         self.background = background
         self.base = base
-        self.live = live
         clear()
     }
 
-    private static func makeContext(for spec: CanvasSpec, flipped: Bool) -> CGContext? {
+    private static func makeContext(width: Int, height: Int, flipped: Bool) -> CGContext? {
         let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
         guard let context = CGContext(
             data: nil,
-            width: spec.width,
-            height: spec.height,
+            width: width,
+            height: height,
             bitsPerComponent: 8,
             bytesPerRow: 0,
             space: colorSpace,
@@ -45,7 +43,7 @@ final class BitmapCanvas {
         }
         if flipped {
             // Work in "screen" coordinates: origin top-left, y grows downward.
-            context.translateBy(x: 0, y: CGFloat(spec.height))
+            context.translateBy(x: 0, y: CGFloat(height))
             context.scaleBy(x: 1, y: -1)
         }
         context.setAllowsAntialiasing(true)
@@ -62,8 +60,8 @@ final class BitmapCanvas {
     func clear() {
         base.setFillColor(background.cgColor)
         base.fill(fullRect)
-        live.clear(fullRect)
-        liveArea = .null
+        liveContext = nil
+        liveRect = .null
         baseVersion += 1
     }
 
@@ -85,16 +83,28 @@ final class BitmapCanvas {
         return true
     }
 
-    /// Redraws the live layer: clears what was there and draws the uncommitted part of each stroke in progress.
+    /// Redraws the live layer: a fresh transparent bitmap that covers the part of each stroke in progress that
+    /// isn't committed yet (and nothing else).
     func updateLive(_ sessions: [StrokeSession]) {
-        if !liveArea.isNull {
-            live.clear(liveArea)
-        }
         var area = CGRect.null
         for session in sessions {
-            area = area.union(session.drawPending(into: live))
+            area = area.union(session.pendingArea)
         }
-        liveArea = area
+        let bounds = area.isNull ? CGRect.null : area.integral.intersection(fullRect)
+        guard !bounds.isNull, !bounds.isEmpty,
+              let context = BitmapCanvas.makeContext(width: Int(bounds.width), height: Int(bounds.height), flipped: true) else {
+            liveContext = nil
+            liveRect = .null
+            return
+        }
+        // Canvas pixel (x, y) lands at (x - minX, y - minY) in the small bitmap, on the same pixel grid as the
+        // full canvas, so a stroke looks the same here as when it is committed.
+        context.translateBy(x: -bounds.minX, y: -bounds.minY)
+        for session in sessions {
+            session.drawPending(into: context)
+        }
+        liveContext = context
+        liveRect = bounds
     }
 
     /// Ends a stroke: paints the rest of it into the committed layer and returns the finished stroke.
@@ -125,22 +135,24 @@ final class BitmapCanvas {
         base.makeImage()
     }
 
-    /// A snapshot of the live layer (transparent where nothing is being drawn).
+    /// A snapshot of the live layer, to be shown at `liveRect`. Nil when nothing is being drawn.
     func makeLiveImage() -> CGImage? {
-        live.makeImage()
+        liveContext?.makeImage()
     }
 
     /// The picture as it should be saved: committed pixels with any stroke still in progress on top. The image is
     /// immutable, so it is safe to encode on a background queue while the user keeps drawing.
     func makeSnapshot() -> CGImage? {
         guard let committed = base.makeImage() else { return nil }
-        guard !liveArea.isNull,
-              let overlay = live.makeImage(),
-              let context = BitmapCanvas.makeContext(for: spec, flipped: false) else {
+        guard !liveRect.isNull,
+              let overlay = liveContext?.makeImage(),
+              let context = BitmapCanvas.makeContext(width: spec.width, height: spec.height, flipped: false) else {
             return committed
         }
         context.draw(committed, in: fullRect)
-        context.draw(overlay, in: fullRect)
+        // This context has its origin at the bottom-left, the live rectangle is measured from the top-left.
+        context.draw(overlay, in: CGRect(x: liveRect.minX, y: CGFloat(spec.height) - liveRect.maxY,
+                                         width: liveRect.width, height: liveRect.height))
         return context.makeImage() ?? committed
     }
 
@@ -151,9 +163,16 @@ final class BitmapCanvas {
         BitmapCanvas.pixel(in: base, x: x, y: y, width: spec.width, height: spec.height)
     }
 
-    /// The premultiplied RGBA bytes of the live-layer pixel at `x`, `y`.
+    /// The premultiplied RGBA bytes of the live layer at canvas pixel `x`, `y`: transparent wherever nothing is
+    /// being drawn, and nil outside the canvas.
     func livePixel(x: Int, y: Int) -> (r: UInt8, g: UInt8, b: UInt8, a: UInt8)? {
-        BitmapCanvas.pixel(in: live, x: x, y: y, width: spec.width, height: spec.height)
+        guard x >= 0, y >= 0, x < spec.width, y < spec.height else { return nil }
+        if let context = liveContext, !liveRect.isNull,
+           let local = BitmapCanvas.pixel(in: context, x: x - Int(liveRect.minX), y: y - Int(liveRect.minY),
+                                          width: context.width, height: context.height) {
+            return local
+        }
+        return (0, 0, 0, 0)
     }
 
     /// A copy of the raw committed pixel bytes, row by row.

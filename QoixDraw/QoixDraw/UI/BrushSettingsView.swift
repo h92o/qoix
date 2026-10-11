@@ -44,6 +44,9 @@ struct BrushSettingsView: View {
                 }
 
                 Section("Feel") {
+                    SliderRow(title: "Smoothing", value: $settings.preset.smoothing, range: 0...1) {
+                        String(format: "%.0f%%", $0 * 100)
+                    }
                     SliderRow(title: "Speed sensitivity", value: $settings.preset.speedResponse, range: 0...1) {
                         String(format: "%.0f%%", $0 * 100)
                     }

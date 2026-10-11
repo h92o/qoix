@@ -225,6 +225,34 @@ final class StrokeBuilderTests: XCTestCase {
         XCTAssertGreaterThan(result[result.count - 20].scale, 1.3)
     }
 
+    func testMoreSmoothingMakesThePenTrailFurtherBehindTheFinger() {
+        func penPosition(followTime: Double) -> CGFloat {
+            let brush = Brush(color: .black, nib: Nib.round(diameter: 10), dynamics: Dynamics(followTime: followTime))
+            let points = linePoints(from: CGPoint(x: 10, y: 20), to: CGPoint(x: 410, y: 20), speed: 600)
+            let builder = StrokeBuilder(brush: brush, start: points[0])
+            for point in points.dropFirst() {
+                builder.add(point)
+            }
+            return builder.steps[builder.steps.count - 1].center.x // while the finger is still down
+        }
+        let tight = penPosition(followTime: 0.004)
+        let fluid = penPosition(followTime: 0.06)
+        XCTAssertGreaterThan(tight, 400, "a tight pen is right under the finger")
+        XCTAssertLessThan(fluid, tight - 20, "a fluid pen lags well behind it: \(fluid) vs \(tight)")
+    }
+
+    func testTheStrokeEndsWhereTheFingerLiftedWhateverTheSmoothing() throws {
+        // 0 and 5 seconds are outside what the pen allows and are held to its limits.
+        for followTime in [0.0, 0.004, 0.06, 5.0] {
+            let brush = Brush(color: .black, nib: Nib.round(diameter: 10), dynamics: Dynamics(followTime: followTime))
+            let result = steps(of: brush, linePoints(from: CGPoint(x: 10, y: 20), to: CGPoint(x: 410, y: 20), speed: 600))
+            let last = try XCTUnwrap(result.last)
+            XCTAssertEqual(last.center.x, 410, accuracy: 0.6, "follow time \(followTime)")
+            XCTAssertEqual(last.center.y, 20, accuracy: 0.001)
+            XCTAssertTrue(result.allSatisfy { $0.center.x.isFinite && $0.scale.isFinite })
+        }
+    }
+
     func testAHugeJumpDoesNotProduceAHugeNumberOfSteps() {
         // A million pixels would be nearly a million steps without the per-span cap (400); the catch-up at the
         // end of the stroke is capped the same way, so the total stays in the low thousands.

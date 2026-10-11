@@ -24,6 +24,11 @@ enum AppConfig {
     static let strokeStartDistancePoints: CGFloat = 3
     static let tapMaxDuration: TimeInterval = 0.35
 
+    /// How many fingers can write at the same time. Calligraphy is one pen, so a second finger touching down while
+    /// a stroke is in progress (the knuckle of your writing hand, say) is ignored. Raise it to draw with several
+    /// fingers at once.
+    static let maximumSimultaneousStrokes = 1
+
     // MARK: Saving
 
     /// After a successful save, start a fresh canvas for the next picture. Shake, then Undo, brings the saved

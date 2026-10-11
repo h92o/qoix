@@ -80,6 +80,9 @@ struct Dynamics: Equatable, Codable {
     /// When the finger lifts the stroke runs on for this distance, shrinking to `endScale`. 0 = no tail.
     var taperOut: Double = 0
     var endScale: Double = 0.1
+    /// How quickly the pen catches up with the finger, as a time constant in seconds. A larger value smooths the
+    /// line more (wobble disappears, curves become fluid) and lets the pen trail further behind the finger.
+    var followTime: Double = 0.012
 
     /// A tip that never changes size.
     static let rigid = Dynamics()

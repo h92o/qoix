@@ -153,8 +153,9 @@ final class CanvasViewTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(view.livePixel(x: 50, y: 200)).a, 0, "the live layer is emptied when the stroke ends")
     }
 
-    func testSeveralFingersDrawIndependentStrokes() throws {
+    func testSeveralFingersCanDrawIndependentStrokesWhenAllowed() throws {
         let view = try makeView()
+        view.maximumSimultaneousStrokes = 2
         view.beginStroke(id: 1, atViewPoint: CGPoint(x: 10, y: 20), time: 0)
         view.beginStroke(id: 2, atViewPoint: CGPoint(x: 10, y: 150), time: 0)
         view.extendStroke(id: 1, toViewPoint: CGPoint(x: 60, y: 20), time: 0.1)
@@ -165,6 +166,81 @@ final class CanvasViewTests: XCTestCase {
         XCTAssertEqual(view.drawing.strokes.count, 2)
         XCTAssertTrue(try isInked(view, 70, 40))
         XCTAssertTrue(try isInked(view, 70, 300))
+    }
+
+    func testOnlyOneFingerWritesAtATimeByDefault() throws {
+        let view = try makeView()
+        XCTAssertEqual(view.maximumSimultaneousStrokes, 1)
+
+        view.beginStroke(id: 1, atViewPoint: CGPoint(x: 10, y: 20), time: 0)
+        view.extendStroke(id: 1, toViewPoint: CGPoint(x: 60, y: 20), time: 0.1) // finger 1 is now writing
+        view.beginStroke(id: 2, atViewPoint: CGPoint(x: 10, y: 150), time: 0.1) // a knuckle lands
+        view.extendStroke(id: 2, toViewPoint: CGPoint(x: 60, y: 150), time: 0.2)
+        view.endStroke(id: 2, time: 0.2)
+        view.endStroke(id: 1, time: 0.2)
+
+        XCTAssertEqual(view.drawing.strokes.count, 1)
+        XCTAssertTrue(try isInked(view, 70, 40))
+        XCTAssertFalse(try isInked(view, 70, 300), "the second finger leaves no mark")
+    }
+
+    func testAFingerThatLandedWhileAnotherWasWritingStaysIgnoredEvenAfterTheWriterLifts() throws {
+        let view = try makeView()
+        view.beginStroke(id: 1, atViewPoint: CGPoint(x: 10, y: 20), time: 0)
+        view.extendStroke(id: 1, toViewPoint: CGPoint(x: 60, y: 20), time: 0.1)
+        view.beginStroke(id: 2, atViewPoint: CGPoint(x: 10, y: 150), time: 0.1)
+        view.endStroke(id: 1, time: 0.2)
+
+        view.extendStroke(id: 2, toViewPoint: CGPoint(x: 60, y: 150), time: 0.3)
+        view.endStroke(id: 2, time: 0.3)
+
+        XCTAssertEqual(view.drawing.strokes.count, 1, "it was never allowed to draw, so it doesn't start late")
+        XCTAssertFalse(try isInked(view, 70, 300))
+    }
+
+    func testARestingThumbDoesNotStopTheFingerThatWritesNextToIt() throws {
+        let view = try makeView()
+        view.beginStroke(id: 1, atViewPoint: CGPoint(x: 90, y: 190), time: 0) // thumb holding the phone
+        view.beginStroke(id: 2, atViewPoint: CGPoint(x: 10, y: 100), time: 0.5)
+        view.extendStroke(id: 2, toViewPoint: CGPoint(x: 60, y: 100), time: 0.6)
+        view.endStroke(id: 2, time: 0.6)
+        view.endStroke(id: 1, time: 2)
+
+        XCTAssertEqual(view.drawing.strokes.count, 1)
+        XCTAssertTrue(try isInked(view, 70, 200))
+        XCTAssertFalse(try isInked(view, 180, 380), "the thumb left no mark")
+    }
+
+    func testTheWriterCanDrawAgainAfterIgnoringAnotherFinger() throws {
+        let view = try makeView()
+        view.beginStroke(id: 1, atViewPoint: CGPoint(x: 10, y: 20), time: 0)
+        view.extendStroke(id: 1, toViewPoint: CGPoint(x: 60, y: 20), time: 0.1)
+        view.beginStroke(id: 2, atViewPoint: CGPoint(x: 10, y: 150), time: 0.1)
+        view.endStroke(id: 1, time: 0.2)
+        view.endStroke(id: 2, time: 0.3)
+
+        drawLine(view, id: 3, from: CGPoint(x: 10, y: 100), to: CGPoint(x: 90, y: 100))
+        XCTAssertEqual(view.drawing.strokes.count, 2)
+    }
+
+    func testTheLiveLayerIsAPatchOverTheStrokeInProgress() throws {
+        let view = try makeView()
+        let live = try XCTUnwrap(view.layer.sublayers?.first)
+        XCTAssertTrue(live.isHidden, "nothing is being drawn")
+
+        view.beginStroke(id: 1, atViewPoint: CGPoint(x: 20, y: 100), time: 0)
+        view.extendStroke(id: 1, toViewPoint: CGPoint(x: 60, y: 100), time: 0.1)
+        view.refreshDisplay()
+        XCTAssertFalse(live.isHidden)
+        XCTAssertNotNil(live.contents)
+        XCTAssertTrue(live.frame.contains(CGPoint(x: 38, y: 100)), "it sits over the new ink: \(live.frame)")
+        XCTAssertLessThan(live.frame.width, 60, "and only over it: \(live.frame)")
+        XCTAssertLessThan(live.frame.height, 30)
+
+        view.endStroke(id: 1, time: 0.1)
+        view.refreshDisplay()
+        XCTAssertTrue(live.isHidden)
+        XCTAssertNil(live.contents)
     }
 
     func testExtendingOrEndingAStrokeThatNeverStartedIsHarmless() throws {

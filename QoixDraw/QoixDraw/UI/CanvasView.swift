@@ -13,10 +13,14 @@ final class CanvasView: UIView {
     /// The pen used for new strokes.
     let pen: PenSettings
 
+    /// How many fingers can write at once. Calligraphy is one pen, so by default a second finger (the knuckle of
+    /// the writing hand, a thumb holding the phone) is ignored while a stroke is in progress.
+    var maximumSimultaneousStrokes = AppConfig.maximumSimultaneousStrokes
+
     // MARK: Layers
 
     /// Shows the part of the strokes in progress that isn't committed yet, above the committed picture (which
-    /// is this view's own layer).
+    /// is this view's own layer). It is only as big as that part, so updating it every frame stays cheap.
     private let liveLayer = CALayer()
     private var presentedBaseVersion = -1
 
@@ -42,6 +46,9 @@ final class CanvasView: UIView {
     private var pendingTouches: [AnyHashable: PendingTouch] = [:]
     /// Strokes currently being drawn, one per finger.
     private var activeStrokes: [AnyHashable: ActiveStroke] = [:]
+    /// Fingers that are down but not allowed to draw (another finger was already writing). They are ignored until
+    /// they lift, even if the writing finger lifts first.
+    private var ignoredTouches: Set<AnyHashable> = []
 
     // MARK: Setup
 
@@ -62,7 +69,7 @@ final class CanvasView: UIView {
         isOpaque = true
         backgroundColor = UIColor(white: 0.1, alpha: 1)
         layer.contentsGravity = .resizeAspect
-        liveLayer.contentsGravity = .resizeAspect
+        liveLayer.isHidden = true
         layer.addSublayer(liveLayer)
 
         isAccessibilityElement = true
@@ -80,10 +87,7 @@ final class CanvasView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        liveLayer.frame = bounds
-        CATransaction.commit()
+        placeLiveLayer()
     }
 
     // MARK: Geometry
@@ -114,6 +118,14 @@ final class CanvasView: UIView {
         return CGPoint(x: (point.x - frame.minX) * scale, y: (point.y - frame.minY) * scale)
     }
 
+    /// Where a rectangle of canvas pixels is shown in this view.
+    private func viewRect(forCanvasRect rect: CGRect) -> CGRect {
+        let frame = canvasFrame
+        let scale = canvasPixelsPerPoint
+        return CGRect(x: frame.minX + rect.minX / scale, y: frame.minY + rect.minY / scale,
+                      width: rect.width / scale, height: rect.height / scale)
+    }
+
     private func makePoint(_ viewPoint: CGPoint, time: TimeInterval, contactRadius: CGFloat) -> StrokePoint {
         StrokePoint(canvasPoint(forViewPoint: viewPoint),
                     time: time,
@@ -124,22 +136,38 @@ final class CanvasView: UIView {
     //
     // A finger touching down does not draw straight away. It starts a stroke once it has moved a little, and a
     // quick tap leaves a dot. So a thumb resting on the screen while the other hand draws never marks it.
+    // And while one finger is writing, other fingers are ignored (see `maximumSimultaneousStrokes`).
+
+    private var canStartAnotherStroke: Bool {
+        activeStrokes.count < maximumSimultaneousStrokes
+    }
 
     func beginStroke(id: AnyHashable, atViewPoint viewPoint: CGPoint,
                      time: TimeInterval = ProcessInfo.processInfo.systemUptime, contactRadius: CGFloat = 0) {
         accessibilityValue = nil // Any earlier status ("Saved to Photos") no longer describes the canvas.
+        guard canStartAnotherStroke else {
+            ignoredTouches.insert(id)
+            return
+        }
         let first = makePoint(viewPoint, time: 0, contactRadius: contactRadius)
         pendingTouches[id] = PendingTouch(startViewPoint: viewPoint, startTime: time, samples: [first])
     }
 
     func extendStroke(id: AnyHashable, toViewPoint viewPoint: CGPoint,
                       time: TimeInterval = ProcessInfo.processInfo.systemUptime, contactRadius: CGFloat = 0) {
+        if ignoredTouches.contains(id) {
+            return
+        }
         if var pending = pendingTouches[id] {
             pending.samples.append(makePoint(viewPoint, time: time - pending.startTime, contactRadius: contactRadius))
             let moved = hypot(viewPoint.x - pending.startViewPoint.x, viewPoint.y - pending.startViewPoint.y)
             if moved >= AppConfig.strokeStartDistancePoints {
                 pendingTouches[id] = nil
-                startStroke(id: id, startTime: pending.startTime, samples: pending.samples)
+                if canStartAnotherStroke {
+                    startStroke(id: id, startTime: pending.startTime, samples: pending.samples)
+                } else {
+                    ignoredTouches.insert(id) // Another finger got there first.
+                }
             } else {
                 pendingTouches[id] = pending
             }
@@ -151,9 +179,12 @@ final class CanvasView: UIView {
     }
 
     func endStroke(id: AnyHashable, time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        if ignoredTouches.remove(id) != nil {
+            return
+        }
         if let pending = pendingTouches.removeValue(forKey: id) {
             // It never moved far enough to draw: a quick tap leaves a dot, a long rest leaves nothing.
-            if time - pending.startTime <= AppConfig.tapMaxDuration {
+            if time - pending.startTime <= AppConfig.tapMaxDuration, canStartAnotherStroke {
                 startStroke(id: id, startTime: pending.startTime, samples: [pending.samples[0]])
                 finishStroke(id: id)
             }
@@ -304,7 +335,23 @@ final class CanvasView: UIView {
             layer.contents = bitmap.makeImage()
             presentedBaseVersion = bitmap.baseVersion
         }
-        liveLayer.contents = activeStrokes.isEmpty ? nil : bitmap.makeLiveImage()
+        if let image = bitmap.makeLiveImage() {
+            liveLayer.contents = image
+            liveLayer.isHidden = false
+            placeLiveLayer()
+        } else {
+            liveLayer.isHidden = true
+            liveLayer.contents = nil
+        }
+        CATransaction.commit()
+    }
+
+    /// Puts the live layer over the part of the canvas it covers.
+    private func placeLiveLayer() {
+        guard !bitmap.liveRect.isNull else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        liveLayer.frame = viewRect(forCanvasRect: bitmap.liveRect)
         CATransaction.commit()
     }
 

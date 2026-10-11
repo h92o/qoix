@@ -131,6 +131,30 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee "$RUNNER_TEMP/xcodebuild-device.log" | tail -n 5
 
+      # An .ipa without a signature. It can't be installed as it is: a sideloading tool (AltStore, Sideloadly,
+      # or Xcode's Devices window) signs it with your own Apple ID and puts it on your iPhone.
+      - name: Package the unsigned .ipa
+        if: ${{ !cancelled() && matrix.runner == 'macos-26' }}
+        run: |
+          app="$RUNNER_TEMP/DerivedDataDevice/Build/Products/Release-iphoneos/QoixDraw.app"
+          if [ -d "$app" ]; then
+            mkdir -p "$RUNNER_TEMP/ipa/Payload"
+            cp -R "$app" "$RUNNER_TEMP/ipa/Payload/"
+            (cd "$RUNNER_TEMP/ipa" && zip -qry QoixDraw-unsigned.ipa Payload)
+            ls -la "$RUNNER_TEMP/ipa"
+          else
+            echo "no device build to package"
+          fi
+
+      - name: Upload the unsigned .ipa
+        if: ${{ !cancelled() && matrix.runner == 'macos-26' }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: QoixDraw-unsigned-ipa
+          path: ${{ runner.temp }}/ipa/QoixDraw-unsigned.ipa
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Built Info.plist
         if: always()
         run: |

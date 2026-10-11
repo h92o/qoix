@@ -38,12 +38,17 @@ The built-in pens, in the order the sheet lists them:
 | Marker | round, 4 pt | constant width |
 
 **Brush & Color** (shake, then the last menu entry) shows a live specimen drawn by the real engine and lets you tune:
-tip shape (flat/oval), **size**, **edge thickness**, **angle**, **speed sensitivity** and **finger pressure**
-(how much a harder, wider touch fattens the line), plus the ink. Your choice is remembered between launches.
+tip shape (flat/oval), **size**, **edge thickness**, **angle**, **smoothing** (how far the pen trails behind your
+finger: more smoothing turns finger wobble into fluid curves), **speed sensitivity** and **finger pressure** (how much
+a harder, wider touch fattens the line), plus the ink. Your choice is remembered between launches.
 
-Under the hood the stroke is smoothed (the pen trails the finger by a few milliseconds, which evens out wobble),
-and the swept area is filled as **one anti-aliased shape**, so the edges stay clean however slowly or quickly you
-draw. Because a drawing is stored as its strokes (points, timing, pen), undo repaints the exact same pixels.
+Under the hood the swept area is filled as **one anti-aliased shape**, so the edges stay clean however slowly or
+quickly you draw. Because a drawing is stored as its strokes (points, timing, pen), undo repaints the exact same
+pixels.
+
+**One finger writes at a time.** While a stroke is in progress, other fingers touching the screen (the knuckle of
+the writing hand, a thumb holding the phone) are ignored, so they can't leave stray marks. A finger resting on the
+screen without moving never draws either. Both are settings in `AppConfig.swift`.
 
 What a finger can't do: an iPhone has no pressure sensor, so "finger pressure" uses the size of the contact patch,
 which is only a rough stand-in and varies between phones. And your finger covers the spot where the nib touches. If
@@ -64,6 +69,12 @@ You need a Mac with **Xcode 16 or newer** and an iPhone on **iOS 16 or newer**.
 
 The Simulator has no volume buttons, so there **⌘S saves**, ⌘N starts a new canvas, and ⌘Z undoes
 (Device ▸ Shake opens the shake menu).
+
+**No Mac?** Every successful run of the GitHub Actions workflow also produces an *unsigned* `QoixDraw-unsigned.ipa`
+(Actions ▸ the latest green run ▸ Artifacts ▸ `QoixDraw-unsigned-ipa`). It can't be installed as it is: a sideloading
+tool such as Sideloadly or AltStore signs it with your own Apple ID and installs it on your iPhone (with a free
+Apple ID the app has to be re-installed every 7 days). That route has not been tried from here, so treat it as a
+starting point.
 
 ## The volume buttons: how they work, and their limits
 
@@ -92,15 +103,15 @@ drawing is kept in the **Files** app instead (On My iPhone ▸ QOIX Draw) so not
 ## Settings you may want to change
 
 - [`AppConfig.swift`](QoixDraw/AppConfig.swift): the pen a fresh install starts with, how far a finger must move
-  before it starts drawing (so a resting thumb never marks the canvas), canvas background, whether the canvas
-  clears after a save, and the canvas shape (screen-shaped by default; return `CanvasSpec(width: 2000, height: 2000)`
+  before it starts drawing (so a resting thumb never marks the canvas), how many fingers may write at once,
+  canvas background, whether the canvas clears after a save, and the canvas shape (screen-shaped by default; return `CanvasSpec(width: 2000, height: 2000)`
   for a fixed square). The 2000 px ceiling itself lives in [`Canvas/CanvasSpec.swift`](QoixDraw/Canvas/CanvasSpec.swift),
   the one place that enforces it.
 - [`Brush/BrushPreset.swift`](QoixDraw/Brush/BrushPreset.swift): the built-in pens. Add your own by copying one and
   changing the numbers, then list it in `BrushPreset.all`.
 - [`Brush/Palette.swift`](QoixDraw/Brush/Palette.swift): the inks Volume Up steps through.
-- [`Canvas/StrokeBuilder.swift`](QoixDraw/Canvas/StrokeBuilder.swift): how smooth and how quick the pen follows the
-  finger (the time constants at the top).
+- [`Canvas/StrokeBuilder.swift`](QoixDraw/Canvas/StrokeBuilder.swift): how the pen follows the finger and how the
+  tip reacts to speed and pressure (the constants at the top; the amount of smoothing itself is per pen).
 
 ## How it is built
 
@@ -124,8 +135,9 @@ drawings to edit later, exporting at other sizes, or replaying a drawing as a ti
 
 Painting a stroke: `StrokeBuilder` turns finger samples into pen positions (smoothing, speed and pressure sizing,
 tapers), then `StrokeSession` fills the union of the convex hulls of the tip at neighboring positions, which is
-exact for any convex tip. Finished stretches are baked into the picture while the rest is redrawn each frame on a
-transparent layer above it, so drawing stays fast even on a 2000 px canvas.
+exact for any convex tip. Finished stretches are baked into the picture while the rest is redrawn each frame into a
+small transparent patch that floats over just that part of the canvas, so drawing stays fast even on a 2000 px
+canvas.
 
 ## Ideas for what's next
 

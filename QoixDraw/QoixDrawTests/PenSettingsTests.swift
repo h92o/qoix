@@ -140,6 +140,27 @@ final class PenSettingsTests: XCTestCase {
         XCTAssertEqual(brush.dynamics.endScale, 0.05, accuracy: 1e-9)
     }
 
+    func testSmoothingSetsHowLongThePenTakesToCatchUpWithTheFinger() {
+        XCTAssertEqual(BrushPreset.followTime(forSmoothing: 0), 0.004, accuracy: 1e-9)
+        XCTAssertEqual(BrushPreset.followTime(forSmoothing: 1), 0.06, accuracy: 1e-9)
+        var previous = 0.0
+        for step in 0...10 {
+            let time = BrushPreset.followTime(forSmoothing: Double(step) / 10)
+            XCTAssertGreaterThan(time, previous, "more smoothing never means a tighter pen")
+            previous = time
+        }
+        XCTAssertEqual(BrushPreset.followTime(forSmoothing: -3), 0.004, accuracy: 1e-9, "held to the limits")
+        XCTAssertEqual(BrushPreset.followTime(forSmoothing: 7), 0.06, accuracy: 1e-9, "held to the limits")
+    }
+
+    func testTheBrushCarriesTheSmoothingOfItsPen() {
+        var preset = BrushPreset.chisel45
+        preset.smoothing = 1
+        XCTAssertEqual(preset.brush(color: .black, pixelsPerPoint: 2).dynamics.followTime, 0.06, accuracy: 1e-9)
+        preset.smoothing = 0
+        XCTAssertEqual(preset.brush(color: .black, pixelsPerPoint: 3).dynamics.followTime, 0.004, accuracy: 1e-9)
+    }
+
     func testTheBuiltInPensAreSensible() {
         let names = BrushPreset.all.map(\.name)
         XCTAssertEqual(Set(names).count, names.count, "names identify the pens, so they must be unique")
@@ -150,6 +171,7 @@ final class PenSettingsTests: XCTestCase {
             XCTAssertTrue((0...1).contains(preset.speedResponse), preset.name)
             XCTAssertTrue((0...1).contains(preset.contactResponse), preset.name)
             XCTAssertTrue((0...1).contains(preset.minScale), preset.name)
+            XCTAssertTrue((0...1).contains(preset.smoothing), preset.name)
             XCTAssertGreaterThan(preset.referenceSpeedPoints, 0, preset.name)
         }
     }
@@ -216,12 +238,22 @@ final class BrushSettingsViewTests: XCTestCase {
         XCTAssertEqual(white, 0, "white ink on white paper leaves nothing dark")
     }
 
-    func testTheBrushSheetBuildsAndLaysOut() {
+    /// A smoke test: the sheet is put on screen, SwiftUI builds all of it, and changing a setting re-renders the
+    /// preview, all without a crash or a hang. (What SwiftUI builds underneath is not something to assert on.)
+    func testTheBrushSheetBuildsAndRespondsToChanges() {
         let settings = PenSettings(defaults: nil)
         let host = UIHostingController(rootView: BrushSettingsView(settings: settings))
-        host.loadViewIfNeeded()
-        host.view.frame = CGRect(x: 0, y: 0, width: 393, height: 760)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 760))
+        window.rootViewController = host
+        window.isHidden = false
         host.view.layoutIfNeeded()
-        XCTAssertFalse(host.view.subviews.isEmpty)
+        letMainQueueRun(for: 0.5)
+
+        settings.preset.angleDegrees = 70
+        settings.cycleColor()
+        letMainQueueRun(for: 0.3)
+
+        XCTAssertEqual(host.view.bounds.size, CGSize(width: 393, height: 760))
+        window.isHidden = true
     }
 }

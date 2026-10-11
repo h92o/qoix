@@ -11,7 +11,7 @@ import Foundation
 /// To make that cheap while drawing, the hulls are painted in fixed-size chunks (by position in the stroke, not by
 /// when finger events happened to arrive):
 /// - a *complete* chunk is painted once into the permanent bitmap,
-/// - the *pending* hulls after the last complete chunk are redrawn each frame into a separate transparent layer.
+/// - the *pending* hulls after the last complete chunk are redrawn each frame into a small transparent layer.
 ///
 /// Because chunks depend only on the stroke itself, painting a stroke live and painting it later from its saved
 /// points produce identical pixels.
@@ -58,12 +58,16 @@ final class StrokeSession {
         return painted
     }
 
-    /// Paints the hulls after the last complete chunk into `context` (a transparent layer) and returns the area
-    /// it touched, so the next frame knows what to clear.
-    func drawPending(into context: CGContext) -> CGRect {
-        let range = bakedCount..<builder.steps.count
-        fill(range, into: context)
-        return area(of: range)
+    /// A rectangle (canvas pixels) covering the ink of the hulls that aren't painted into the permanent bitmap
+    /// yet, with room for anti-aliasing. `.null` when there are none.
+    var pendingArea: CGRect {
+        area(of: bakedCount..<builder.steps.count)
+    }
+
+    /// Paints the hulls after the last complete chunk into `context`, a transparent layer that is cleared
+    /// before every frame.
+    func drawPending(into context: CGContext) {
+        fill(bakedCount..<builder.steps.count, into: context)
     }
 
     /// Ends the stroke and paints everything not yet painted into `context`. Returns the finished stroke.

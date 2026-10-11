@@ -20,8 +20,8 @@ struct StrokeStep: Equatable {
 /// - sizes the tip from speed and finger contact area, if the brush's dynamics ask for that,
 /// - tapers the start and, when the finger lifts, adds a tail to the end.
 final class StrokeBuilder {
-    /// How quickly the pen catches up with the finger (seconds). Smaller follows more tightly.
-    static let positionTimeConstant: CGFloat = 0.012
+    /// The brush's `followTime` is kept within these limits (seconds).
+    static let followTimeRange: ClosedRange<CGFloat> = 0.001...0.5
     /// How quickly the speed estimate and the tip size react (seconds).
     static let speedTimeConstant: CGFloat = 0.06
     static let scaleTimeConstant: CGFloat = 0.08
@@ -40,6 +40,9 @@ final class StrokeBuilder {
     /// The pen-tip positions so far. Only ever appended to.
     private(set) var steps: [StrokeStep] = []
 
+    /// How quickly the pen catches up with the finger (seconds). Smaller follows more tightly.
+    private let followTime: CGFloat
+
     private var lastRaw: StrokePoint
     private var smoothed: CGPoint
     private var lastMid: CGPoint
@@ -53,6 +56,8 @@ final class StrokeBuilder {
 
     init(brush: Brush, start: StrokePoint) {
         self.brush = brush
+        self.followTime = min(max(CGFloat(brush.dynamics.followTime), StrokeBuilder.followTimeRange.lowerBound),
+                              StrokeBuilder.followTimeRange.upperBound)
         self.lastRaw = start
         self.smoothed = start.cgPoint
         self.lastMid = start.cgPoint
@@ -81,10 +86,13 @@ final class StrokeBuilder {
         guard !isFinished else { return }
         isFinished = true
 
+        // Each catch-up step closes half of the remaining gap, however much smoothing the brush has, so the
+        // stroke always ends where the finger lifted.
         let end = lastRaw.cgPoint
+        let catchUp: CGFloat = followTime * 0.693147 // ln 2: a step this long closes exactly half the gap
         var iterations = 0
         while hypot(end.x - smoothed.x, end.y - smoothed.y) > 0.5 && iterations < 12 {
-            advance(toward: end, dt: 1.0 / 120.0, radius: lastRaw.radius)
+            advance(toward: end, dt: catchUp, radius: lastRaw.radius)
             iterations += 1
         }
         if hypot(smoothed.x - lastMid.x, smoothed.y - lastMid.y) > 0.01 {
@@ -99,7 +107,7 @@ final class StrokeBuilder {
 
     private func advance(toward target: CGPoint, dt: CGFloat, radius: Double) {
         let previous = smoothed
-        let follow = Self.blend(dt: dt, constant: Self.positionTimeConstant)
+        let follow = Self.blend(dt: dt, constant: followTime)
         smoothed = CGPoint(x: previous.x + (target.x - previous.x) * follow,
                            y: previous.y + (target.y - previous.y) * follow)
 

@@ -151,6 +151,78 @@ final class BitmapCanvasTests: XCTestCase {
         assertPixel(canvas, 40, 50, isDark: true)
     }
 
+    func testTheLiveLayerCoversOnlyTheStrokeInProgressNotTheWholeCanvas() throws {
+        let canvas = try makeCanvas(width: 2000, height: 2000)
+        XCTAssertTrue(canvas.liveRect.isNull, "nothing is being drawn yet")
+        XCTAssertNil(canvas.makeLiveImage())
+
+        let session = canvas.beginStroke(brush: Brush.round(color: .black, diameter: 10), start: StrokePoint(x: 1000, y: 1000))
+        canvas.extend(session, with: StrokePoint(x: 1030, y: 1000, time: 0.05))
+        canvas.updateLive([session])
+
+        let rect = canvas.liveRect
+        XCTAssertFalse(rect.isNull)
+        XCTAssertLessThan(rect.width, 150, "the live layer is a small patch: \(rect)")
+        XCTAssertLessThan(rect.height, 60, "the live layer is a small patch: \(rect)")
+        XCTAssertTrue(rect.contains(CGPoint(x: 1015, y: 1000)))
+        XCTAssertEqual(rect.minX, rect.minX.rounded(), "it sits on whole canvas pixels")
+        XCTAssertEqual(rect.minY, rect.minY.rounded(), "it sits on whole canvas pixels")
+        XCTAssertEqual(try XCTUnwrap(canvas.livePixel(x: 1010, y: 1000)).a, 255)
+        XCTAssertEqual(try XCTUnwrap(canvas.livePixel(x: 100, y: 100)).a, 0, "far from the stroke it is transparent")
+        XCTAssertNil(canvas.livePixel(x: 2000, y: 0), "outside the canvas there is nothing")
+        let image = try XCTUnwrap(canvas.makeLiveImage())
+        XCTAssertEqual(image.width, Int(rect.width))
+        XCTAssertEqual(image.height, Int(rect.height))
+    }
+
+    func testTheLiveLayerIsClippedToTheCanvas() throws {
+        let canvas = try makeCanvas(width: 100, height: 100)
+        let session = canvas.beginStroke(brush: Brush.round(color: .black, diameter: 10), start: StrokePoint(x: 2, y: 2))
+        canvas.extend(session, with: StrokePoint(x: 30, y: 2, time: 0.05))
+        canvas.updateLive([session])
+
+        XCTAssertEqual(canvas.liveRect.minX, 0)
+        XCTAssertEqual(canvas.liveRect.minY, 0)
+        XCTAssertGreaterThan(try XCTUnwrap(canvas.livePixel(x: 10, y: 2)).a, 200)
+    }
+
+    func testAStrokeEntirelyOffTheCanvasLeavesNoLiveLayer() throws {
+        let canvas = try makeCanvas(width: 100, height: 100)
+        let session = canvas.beginStroke(brush: Brush.round(color: .black, diameter: 10), start: StrokePoint(x: -500, y: -500))
+        canvas.extend(session, with: StrokePoint(x: -450, y: -450, time: 0.05))
+        canvas.updateLive([session])
+
+        XCTAssertTrue(canvas.liveRect.isNull)
+        XCTAssertNil(canvas.makeLiveImage())
+        XCTAssertEqual(try XCTUnwrap(canvas.livePixel(x: 5, y: 5)).a, 0)
+    }
+
+    func testClearingEmptiesTheLiveLayer() throws {
+        let canvas = try makeCanvas(width: 200, height: 100)
+        let session = canvas.beginStroke(brush: Brush.round(color: .black, diameter: 10), start: StrokePoint(x: 20, y: 50))
+        canvas.extend(session, with: StrokePoint(x: 60, y: 50, time: 0.1))
+        canvas.updateLive([session])
+        XCTAssertFalse(canvas.liveRect.isNull)
+
+        canvas.clear()
+        XCTAssertTrue(canvas.liveRect.isNull)
+        XCTAssertEqual(try XCTUnwrap(canvas.livePixel(x: 40, y: 50)).a, 0)
+    }
+
+    func testTwoStrokesInProgressShareOneLiveLayer() throws {
+        let canvas = try makeCanvas(width: 300, height: 100)
+        let brush = Brush.round(color: .black, diameter: 10)
+        let first = canvas.beginStroke(brush: brush, start: StrokePoint(x: 20, y: 30))
+        let second = canvas.beginStroke(brush: brush, start: StrokePoint(x: 20, y: 70))
+        canvas.extend(first, with: StrokePoint(x: 60, y: 30, time: 0.1))
+        canvas.extend(second, with: StrokePoint(x: 60, y: 70, time: 0.1))
+        canvas.updateLive([first, second])
+
+        XCTAssertGreaterThan(try XCTUnwrap(canvas.livePixel(x: 40, y: 30)).a, 200)
+        XCTAssertGreaterThan(try XCTUnwrap(canvas.livePixel(x: 40, y: 70)).a, 200)
+        XCTAssertEqual(try XCTUnwrap(canvas.livePixel(x: 40, y: 50)).a, 0, "nothing between them")
+    }
+
     func testFinishedChunksOfALongStrokeAreCommittedWhileItIsStillBeingDrawn() throws {
         let canvas = try makeCanvas(width: 400, height: 100)
         let session = canvas.beginStroke(brush: Brush.round(color: .black, diameter: 8), start: StrokePoint(x: 10, y: 50))
