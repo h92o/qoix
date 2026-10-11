@@ -58,3 +58,41 @@ extension XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(seconds))
     }
 }
+
+/// The raw bytes of an image's pixels, row by row, for comparing two pictures exactly.
+func pixelBytes(of image: CGImage) -> Data? {
+    guard let data = image.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else { return nil }
+    return Data(bytes: bytes, count: CFDataGetLength(data))
+}
+
+/// Evenly spaced finger samples along a straight line, as if drawn at a steady `speed` (canvas pixels per second).
+func linePoints(from start: CGPoint, to end: CGPoint, spacing: Double = 4, speed: Double = 600) -> [StrokePoint] {
+    let dx = Double(end.x - start.x)
+    let dy = Double(end.y - start.y)
+    let length = (dx * dx + dy * dy).squareRoot()
+    let count = max(1, Int((length / spacing).rounded(.up)))
+    return (0...count).map { index in
+        let t = Double(index) / Double(count)
+        return StrokePoint(x: Double(start.x) + dx * t, y: Double(start.y) + dy * t, time: length * t / speed)
+    }
+}
+
+/// How much ink (in canvas pixels) lies along a straight probe through `center`, found by sampling the committed
+/// pixels at quarter-pixel steps. `direction` doesn't need to be a unit vector.
+func inkWidth(in canvas: BitmapCanvas, through center: CGPoint, direction: CGVector, reach: Double = 45) -> Double {
+    let length = Double(hypot(direction.dx, direction.dy))
+    let ux = Double(direction.dx) / length
+    let uy = Double(direction.dy) / length
+    let step = 0.25
+    var covered = 0.0
+    var t = -reach
+    while t <= reach {
+        let x = Int((Double(center.x) + ux * t).rounded(.down))
+        let y = Int((Double(center.y) + uy * t).rounded(.down))
+        if let pixel = canvas.pixel(x: x, y: y), pixel.r < 128 {
+            covered += step
+        }
+        t += step
+    }
+    return covered
+}

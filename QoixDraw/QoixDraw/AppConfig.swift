@@ -15,9 +15,14 @@ enum AppConfig {
 
     // MARK: Pen
 
-    /// Line thickness as it appears on screen, in points. Converted to canvas pixels when drawing.
-    static let penWidthPoints: Double = 4
-    static let penColor = RGBAColor.black
+    /// The brush a fresh install starts with. After that the app remembers whatever you last chose (shake the
+    /// phone, then Brush & Color). Pick any of `BrushPreset.all`, or build your own `BrushPreset`.
+    static let defaultPreset = BrushPreset.chisel45
+
+    /// A touch has to move this far (in points) before it starts drawing. A quick tap makes a dot instead, and a
+    /// finger that just rests on the screen, like a thumb holding the phone, never marks it.
+    static let strokeStartDistancePoints: CGFloat = 3
+    static let tapMaxDuration: TimeInterval = 0.35
 
     // MARK: Saving
 

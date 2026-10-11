@@ -2,7 +2,7 @@ import XCTest
 @testable import QoixDraw
 
 final class BitmapCanvasTests: XCTestCase {
-    private let ink = Brush(color: .black, width: 6)
+    private let ink = Brush.round(color: .black, diameter: 6)
 
     private func makeCanvas(width: Int = 60, height: Int = 40, background: RGBAColor = .white) throws -> BitmapCanvas {
         try XCTUnwrap(BitmapCanvas(spec: CanvasSpec(width: width, height: height), background: background))
@@ -18,6 +18,11 @@ final class BitmapCanvasTests: XCTestCase {
         } else {
             XCTAssertGreaterThan(p.r, 195, "pixel (\(x), \(y)) should be blank", file: file, line: line)
         }
+    }
+
+    private func tap(_ canvas: BitmapCanvas, at point: CGPoint, brush: Brush) {
+        let session = canvas.beginStroke(brush: brush, start: StrokePoint(point))
+        _ = canvas.finish(session)
     }
 
     func testStartsFilledWithTheBackground() throws {
@@ -43,8 +48,7 @@ final class BitmapCanvasTests: XCTestCase {
 
     func testATapPaintsADot() throws {
         let canvas = try makeCanvas()
-        let painter = canvas.beginStroke(brush: Brush(color: .black, width: 10), at: CGPoint(x: 30, y: 20))
-        painter.finish()
+        tap(canvas, at: CGPoint(x: 30, y: 20), brush: Brush.round(color: .black, diameter: 10))
         assertPixel(canvas, 30, 20, isDark: true)
         assertPixel(canvas, 33, 20, isDark: true)
         assertPixel(canvas, 40, 20, isDark: false)
@@ -53,10 +57,7 @@ final class BitmapCanvasTests: XCTestCase {
 
     func testAHorizontalStrokeInksTheLineAndNothingElse() throws {
         let canvas = try makeCanvas()
-        let painter = canvas.beginStroke(brush: ink, at: CGPoint(x: 10, y: 20))
-        painter.extend(to: CGPoint(x: 30, y: 20))
-        painter.extend(to: CGPoint(x: 50, y: 20))
-        painter.finish()
+        canvas.paint(Stroke(brush: ink, points: linePoints(from: CGPoint(x: 10, y: 20), to: CGPoint(x: 50, y: 20))))
 
         for x in stride(from: 10, through: 50, by: 5) {
             assertPixel(canvas, x, 20, isDark: true)
@@ -68,57 +69,29 @@ final class BitmapCanvasTests: XCTestCase {
 
     func testYGrowsDownward() throws {
         let canvas = try makeCanvas()
-        let painter = canvas.beginStroke(brush: Brush(color: .black, width: 6), at: CGPoint(x: 30, y: 5))
-        painter.finish()
+        tap(canvas, at: CGPoint(x: 30, y: 5), brush: ink)
         assertPixel(canvas, 30, 5, isDark: true)
         assertPixel(canvas, 30, 35, isDark: false)
     }
 
     func testPaintingOutsideTheCanvasIsHarmless() throws {
         let canvas = try makeCanvas()
-        let painter = canvas.beginStroke(brush: ink, at: CGPoint(x: -50, y: -50))
-        painter.extend(to: CGPoint(x: -40, y: -30))
-        painter.extend(to: CGPoint(x: 500, y: 500))
-        painter.finish()
+        canvas.paint(Stroke(brush: ink, points: linePoints(from: CGPoint(x: -50, y: -50), to: CGPoint(x: -40, y: -30))))
+        canvas.paint(Stroke(brush: ink, points: linePoints(from: CGPoint(x: 500, y: 500), to: CGPoint(x: 600, y: 650))))
         assertPixel(canvas, 0, 39, isDark: false)
-    }
-
-    func testJitterBelowTheMinimumStepIsIgnored() throws {
-        let canvas = try makeCanvas()
-        let painter = canvas.beginStroke(brush: ink, at: CGPoint(x: 10, y: 10))
-        XCTAssertFalse(painter.extend(to: CGPoint(x: 10.1, y: 10.1)))
-        XCTAssertTrue(painter.extend(to: CGPoint(x: 20, y: 10)))
     }
 
     func testPaintingBackInTheBackgroundColorErases() throws {
         let canvas = try makeCanvas()
-        canvas.beginStroke(brush: Brush(color: .black, width: 12), at: CGPoint(x: 30, y: 20)).finish()
+        tap(canvas, at: CGPoint(x: 30, y: 20), brush: Brush.round(color: .black, diameter: 12))
         assertPixel(canvas, 30, 20, isDark: true)
-        canvas.beginStroke(brush: Brush(color: .white, width: 20), at: CGPoint(x: 30, y: 20)).finish()
+        tap(canvas, at: CGPoint(x: 30, y: 20), brush: Brush.round(color: .white, diameter: 20))
         assertPixel(canvas, 30, 20, isDark: false)
     }
 
-    func testReplayIsPixelIdenticalToLiveDrawing() throws {
-        let points = [CGPoint(x: 5, y: 5), CGPoint(x: 15, y: 30), CGPoint(x: 30, y: 8),
-                      CGPoint(x: 31, y: 8.1), CGPoint(x: 45, y: 33), CGPoint(x: 55, y: 12)]
-
-        let live = try makeCanvas()
-        let painter = live.beginStroke(brush: ink, at: points[0])
-        var accepted = [points[0]]
-        for point in points.dropFirst() where painter.extend(to: point) {
-            accepted.append(point)
-        }
-        painter.finish()
-
-        let replayed = try makeCanvas()
-        replayed.paint(Stroke(brush: ink, points: accepted))
-
-        XCTAssertEqual(try XCTUnwrap(live.rawBytes()), try XCTUnwrap(replayed.rawBytes()))
-    }
-
     func testRepaintDropsStrokesThatWereRemoved() throws {
-        let first = Stroke(brush: ink, points: [CGPoint(x: 10, y: 10), CGPoint(x: 20, y: 10)])
-        let second = Stroke(brush: ink, points: [CGPoint(x: 10, y: 30), CGPoint(x: 20, y: 30)])
+        let first = Stroke(brush: ink, points: linePoints(from: CGPoint(x: 10, y: 10), to: CGPoint(x: 20, y: 10)))
+        let second = Stroke(brush: ink, points: linePoints(from: CGPoint(x: 10, y: 30), to: CGPoint(x: 20, y: 30)))
         let canvas = try makeCanvas()
 
         canvas.repaint([first, second])
@@ -143,7 +116,7 @@ final class BitmapCanvasTests: XCTestCase {
     func testSnapshotIsNotAffectedByLaterPainting() throws {
         let canvas = try makeCanvas()
         let image = try XCTUnwrap(canvas.makeImage())
-        canvas.beginStroke(brush: Brush(color: .black, width: 20), at: CGPoint(x: 30, y: 20)).finish()
+        tap(canvas, at: CGPoint(x: 30, y: 20), brush: Brush.round(color: .black, diameter: 20))
 
         let data = try XCTUnwrap(image.dataProvider?.data)
         let bytes = try XCTUnwrap(CFDataGetBytePtr(data))
@@ -154,10 +127,50 @@ final class BitmapCanvasTests: XCTestCase {
 
     func testTheLargestCanvasCanBeCreatedAndPainted() throws {
         let canvas = try makeCanvas(width: 2000, height: 2000)
-        canvas.beginStroke(brush: Brush(color: .black, width: 30), at: CGPoint(x: 1000, y: 1000)).finish()
+        tap(canvas, at: CGPoint(x: 1000, y: 1000), brush: Brush.round(color: .black, diameter: 30))
         assertPixel(canvas, 1000, 1000, isDark: true)
         assertPixel(canvas, 1999, 1999, isDark: false)
         XCTAssertEqual(canvas.makeImage()?.width, 2000)
         XCTAssertEqual(canvas.makeImage()?.height, 2000)
+    }
+
+    // MARK: Live layer
+
+    func testTheLiveLayerShowsAStrokeInProgressAndTheCommittedLayerDoesNot() throws {
+        let canvas = try makeCanvas(width: 200, height: 100)
+        let session = canvas.beginStroke(brush: Brush.round(color: .black, diameter: 10), start: StrokePoint(x: 20, y: 50))
+        canvas.extend(session, with: StrokePoint(x: 60, y: 50, time: 0.1))
+        canvas.updateLive([session])
+
+        XCTAssertGreaterThan(try XCTUnwrap(canvas.livePixel(x: 40, y: 50)).a, 200, "the stroke so far is in the live layer")
+        assertPixel(canvas, 40, 50, isDark: false)
+
+        _ = canvas.finish(session)
+        canvas.updateLive([])
+        XCTAssertEqual(try XCTUnwrap(canvas.livePixel(x: 40, y: 50)).a, 0, "the live layer is empty once the stroke is done")
+        assertPixel(canvas, 40, 50, isDark: true)
+    }
+
+    func testFinishedChunksOfALongStrokeAreCommittedWhileItIsStillBeingDrawn() throws {
+        let canvas = try makeCanvas(width: 400, height: 100)
+        let session = canvas.beginStroke(brush: Brush.round(color: .black, diameter: 8), start: StrokePoint(x: 10, y: 50))
+        let before = canvas.baseVersion
+        for point in linePoints(from: CGPoint(x: 10, y: 50), to: CGPoint(x: 380, y: 50)).dropFirst() {
+            canvas.extend(session, with: point)
+        }
+        XCTAssertGreaterThan(canvas.baseVersion, before, "complete chunks are committed as the stroke grows")
+        assertPixel(canvas, 40, 50, isDark: true)
+    }
+
+    func testTheSnapshotIncludesAStrokeStillInProgress() throws {
+        let canvas = try makeCanvas(width: 200, height: 100)
+        let session = canvas.beginStroke(brush: Brush.round(color: .black, diameter: 10), start: StrokePoint(x: 20, y: 50))
+        canvas.extend(session, with: StrokePoint(x: 60, y: 50, time: 0.1))
+        canvas.updateLive([session])
+
+        let snapshot = try XCTUnwrap(canvas.makeSnapshot())
+        let data = try XCTUnwrap(snapshot.dataProvider?.data)
+        let bytes = try XCTUnwrap(CFDataGetBytePtr(data))
+        XCTAssertLessThan(bytes[50 * snapshot.bytesPerRow + 40 * 4], 80, "the saved picture shows the unfinished stroke")
     }
 }

@@ -3,13 +3,34 @@ import Foundation
 
 /// A fixed-size RGBA pixel buffer that strokes are painted into.
 ///
-/// Coordinates are canvas pixels with the origin at the top-left corner (y grows downward).
+/// There are two layers of pixels, both in canvas pixels with the origin at the top-left corner (y grows
+/// downward):
+/// - the *committed* layer holds the finished picture, including finished chunks of strokes still being drawn;
+/// - the *live* layer is transparent and holds only the part of the strokes in progress that isn't committed yet.
+///   It is redrawn every frame, which is what lets a stroke be anti-aliased as a whole.
 final class BitmapCanvas {
     let spec: CanvasSpec
     let background: RGBAColor
-    private let context: CGContext
+    private let base: CGContext
+    private let live: CGContext
+    /// The area of the live layer that currently has anything drawn in it.
+    private var liveArea: CGRect = .null
+    /// Goes up every time the committed pixels change, so whoever shows them knows when to refresh.
+    private(set) var baseVersion = 0
 
     init?(spec: CanvasSpec, background: RGBAColor = .white) {
+        guard let base = BitmapCanvas.makeContext(for: spec, flipped: true),
+              let live = BitmapCanvas.makeContext(for: spec, flipped: true) else {
+            return nil
+        }
+        self.spec = spec
+        self.background = background
+        self.base = base
+        self.live = live
+        clear()
+    }
+
+    private static func makeContext(for spec: CanvasSpec, flipped: Bool) -> CGContext? {
         let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
         guard let context = CGContext(
             data: nil,
@@ -22,39 +43,71 @@ final class BitmapCanvas {
         ) else {
             return nil
         }
-
-        // Work in "screen" coordinates: origin top-left, y grows downward.
-        context.translateBy(x: 0, y: CGFloat(spec.height))
-        context.scaleBy(x: 1, y: -1)
+        if flipped {
+            // Work in "screen" coordinates: origin top-left, y grows downward.
+            context.translateBy(x: 0, y: CGFloat(spec.height))
+            context.scaleBy(x: 1, y: -1)
+        }
         context.setAllowsAntialiasing(true)
         context.setShouldAntialias(true)
         context.interpolationQuality = .high
-
-        self.spec = spec
-        self.background = background
-        self.context = context
-        clear()
+        return context
     }
 
-    /// Fills the whole canvas with the background color.
+    private var fullRect: CGRect {
+        CGRect(x: 0, y: 0, width: spec.width, height: spec.height)
+    }
+
+    /// Fills the whole canvas with the background color and empties the live layer.
     func clear() {
-        context.setFillColor(background.cgColor)
-        context.fill(CGRect(x: 0, y: 0, width: spec.width, height: spec.height))
+        base.setFillColor(background.cgColor)
+        base.fill(fullRect)
+        live.clear(fullRect)
+        liveArea = .null
+        baseVersion += 1
     }
 
-    /// Starts a stroke: paints its first dot and returns the painter that continues it.
-    func beginStroke(brush: Brush, at point: CGPoint) -> StrokePainter {
-        StrokePainter(brush: brush, start: point, context: context)
+    // MARK: Painting strokes
+
+    /// Starts a stroke at `start`. Nothing is painted until the session is updated or finished.
+    func beginStroke(brush: Brush, start: StrokePoint) -> StrokeSession {
+        StrokeSession(brush: brush, start: start)
+    }
+
+    /// Adds a point to a stroke in progress and paints any chunk it completes into the committed layer.
+    /// Returns false if the point was too close to the last one and was skipped.
+    @discardableResult
+    func extend(_ session: StrokeSession, with point: StrokePoint) -> Bool {
+        guard session.add(point) else { return false }
+        if session.bakeCompleteChunks(into: base) {
+            baseVersion += 1
+        }
+        return true
+    }
+
+    /// Redraws the live layer: clears what was there and draws the uncommitted part of each stroke in progress.
+    func updateLive(_ sessions: [StrokeSession]) {
+        if !liveArea.isNull {
+            live.clear(liveArea)
+        }
+        var area = CGRect.null
+        for session in sessions {
+            area = area.union(session.drawPending(into: live))
+        }
+        liveArea = area
+    }
+
+    /// Ends a stroke: paints the rest of it into the committed layer and returns the finished stroke.
+    func finish(_ session: StrokeSession) -> Stroke {
+        let stroke = session.finish(into: base)
+        baseVersion += 1
+        return stroke
     }
 
     /// Paints a complete stroke in one go (used when replaying a drawing).
     func paint(_ stroke: Stroke) {
-        guard let first = stroke.points.first else { return }
-        let painter = beginStroke(brush: stroke.brush, at: first)
-        for point in stroke.points.dropFirst() {
-            painter.extend(to: point)
-        }
-        painter.finish()
+        StrokeRenderer.render(stroke, into: base)
+        baseVersion += 1
     }
 
     /// Clears the canvas and repaints `strokes` in order.
@@ -65,91 +118,54 @@ final class BitmapCanvas {
         }
     }
 
-    /// A snapshot of the pixels. The image is immutable: painting afterwards does not change it, so it is
-    /// safe to encode on a background queue while the user keeps drawing.
+    // MARK: Images
+
+    /// A snapshot of the committed pixels. The image is immutable: painting afterwards does not change it.
     func makeImage() -> CGImage? {
-        context.makeImage()
+        base.makeImage()
+    }
+
+    /// A snapshot of the live layer (transparent where nothing is being drawn).
+    func makeLiveImage() -> CGImage? {
+        live.makeImage()
+    }
+
+    /// The picture as it should be saved: committed pixels with any stroke still in progress on top. The image is
+    /// immutable, so it is safe to encode on a background queue while the user keeps drawing.
+    func makeSnapshot() -> CGImage? {
+        guard let committed = base.makeImage() else { return nil }
+        guard !liveArea.isNull,
+              let overlay = live.makeImage(),
+              let context = BitmapCanvas.makeContext(for: spec, flipped: false) else {
+            return committed
+        }
+        context.draw(committed, in: fullRect)
+        context.draw(overlay, in: fullRect)
+        return context.makeImage() ?? committed
     }
 
     // MARK: Inspection (used by tests)
 
-    /// The premultiplied RGBA bytes of the pixel at `x`, `y` (top-left origin).
+    /// The premultiplied RGBA bytes of the committed pixel at `x`, `y` (top-left origin).
     func pixel(x: Int, y: Int) -> (r: UInt8, g: UInt8, b: UInt8, a: UInt8)? {
-        guard x >= 0, y >= 0, x < spec.width, y < spec.height, let base = context.data else { return nil }
-        let p = base.assumingMemoryBound(to: UInt8.self) + y * context.bytesPerRow + x * 4
-        return (p[0], p[1], p[2], p[3])
+        BitmapCanvas.pixel(in: base, x: x, y: y, width: spec.width, height: spec.height)
     }
 
-    /// A copy of the raw pixel bytes, row by row.
+    /// The premultiplied RGBA bytes of the live-layer pixel at `x`, `y`.
+    func livePixel(x: Int, y: Int) -> (r: UInt8, g: UInt8, b: UInt8, a: UInt8)? {
+        BitmapCanvas.pixel(in: live, x: x, y: y, width: spec.width, height: spec.height)
+    }
+
+    /// A copy of the raw committed pixel bytes, row by row.
     func rawBytes() -> Data? {
-        guard let base = context.data else { return nil }
-        return Data(bytes: base, count: context.bytesPerRow * spec.height)
-    }
-}
-
-/// Paints one stroke into a bitmap as the finger moves.
-///
-/// Points are joined with quadratic curves that run from midpoint to midpoint, using each raw point as the
-/// control point. That keeps lines smooth without lagging behind the finger. Replaying a stored stroke runs
-/// exactly the same code, so a repaint after undo/redo is pixel-identical to what was drawn live.
-final class StrokePainter {
-    /// Points closer together than this (in canvas pixels) are treated as jitter and skipped.
-    static let minimumStep: CGFloat = 0.25
-
-    let brush: Brush
-    private let context: CGContext
-    private var last: CGPoint
-    private var lastMid: CGPoint
-
-    init(brush: Brush, start: CGPoint, context: CGContext) {
-        self.brush = brush
-        self.context = context
-        self.last = start
-        self.lastMid = start
-        paintDot(at: start)
+        guard let data = base.data else { return nil }
+        return Data(bytes: data, count: base.bytesPerRow * spec.height)
     }
 
-    /// Adds a point to the stroke. Returns `false` (and paints nothing) when the point is too close to the
-    /// previous one to matter.
-    @discardableResult
-    func extend(to point: CGPoint) -> Bool {
-        let dx = point.x - last.x
-        let dy = point.y - last.y
-        guard dx * dx + dy * dy >= Self.minimumStep * Self.minimumStep else { return false }
-
-        let mid = CGPoint(x: (last.x + point.x) / 2, y: (last.y + point.y) / 2)
-        applyBrush()
-        context.beginPath()
-        context.move(to: lastMid)
-        context.addQuadCurve(to: mid, control: last)
-        context.strokePath()
-
-        lastMid = mid
-        last = point
-        return true
-    }
-
-    /// Ends the stroke by running the line out to the final point.
-    func finish() {
-        guard lastMid != last else { return }
-        applyBrush()
-        context.beginPath()
-        context.move(to: lastMid)
-        context.addLine(to: last)
-        context.strokePath()
-        lastMid = last
-    }
-
-    private func applyBrush() {
-        context.setStrokeColor(brush.color.cgColor)
-        context.setLineWidth(CGFloat(brush.width))
-        context.setLineCap(.round)
-        context.setLineJoin(.round)
-    }
-
-    private func paintDot(at point: CGPoint) {
-        let radius = CGFloat(brush.width) / 2
-        context.setFillColor(brush.color.cgColor)
-        context.fillEllipse(in: CGRect(x: point.x - radius, y: point.y - radius, width: radius * 2, height: radius * 2))
+    private static func pixel(in context: CGContext, x: Int, y: Int, width: Int, height: Int)
+        -> (r: UInt8, g: UInt8, b: UInt8, a: UInt8)? {
+        guard x >= 0, y >= 0, x < width, y < height, let data = context.data else { return nil }
+        let p = data.assumingMemoryBound(to: UInt8.self) + y * context.bytesPerRow + x * 4
+        return (p[0], p[1], p[2], p[3])
     }
 }

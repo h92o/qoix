@@ -1,7 +1,8 @@
 import os
+import SwiftUI
 import UIKit
 
-/// The app's one screen: a full-screen canvas. Volume Down saves the drawing.
+/// The app's one screen: a full-screen canvas. Volume Down saves the drawing, Volume Up changes the ink.
 final class CanvasViewController: UIViewController {
     private static let log = Logger(subsystem: "app.qoix.draw", category: "save")
 
@@ -10,14 +11,19 @@ final class CanvasViewController: UIViewController {
     private let volumeObserver = VolumeButtonObserver()
     private let saver: DrawingSaver
     private let haptics = UINotificationFeedbackGenerator()
+    private let selectionHaptics = UISelectionFeedbackGenerator()
+
+    /// The brush and ink, remembered between launches. Shared with the canvas and the brush sheet.
+    let penSettings: PenSettings
 
     private var isSaving = false
     private var lastSaveRequest = Date.distantPast
     private var hasShownLowVolumeHint = false
     private var hasShownPhotosDeniedAlert = false
 
-    init(saver: DrawingSaver = DrawingSaver()) {
+    init(saver: DrawingSaver = DrawingSaver(), penSettings: PenSettings = PenSettings()) {
         self.saver = saver
+        self.penSettings = penSettings
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -64,7 +70,7 @@ final class CanvasViewController: UIViewController {
     private func installCanvasIfNeeded() {
         guard canvasView == nil, view.bounds.width > 0, view.bounds.height > 0 else { return }
         let spec = AppConfig.canvasSpec(forViewSize: view.bounds.size)
-        guard let canvas = CanvasView(canvas: spec) else {
+        guard let canvas = CanvasView(canvas: spec, pen: penSettings) else {
             NSLog("QOIX Draw: could not allocate a \(spec.width) x \(spec.height) canvas")
             return
         }
@@ -86,8 +92,8 @@ final class CanvasViewController: UIViewController {
         canvasView?.history
     }
 
-    /// Shaking the phone opens a small menu: undo, redo, or clear the canvas. (Handled here rather than by the
-    /// system's shake-to-undo alert, which has no way to clear.)
+    /// Shaking the phone opens a small menu: undo, redo, clear the canvas, or open the brush sheet. (Handled here
+    /// rather than by the system's shake-to-undo alert, which has no way to do the last two.)
     override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
         guard motion == .motionShake else {
             super.motionEnded(motion, with: event)
@@ -117,6 +123,10 @@ final class CanvasViewController: UIViewController {
                 sheet.addAction(UIAlertAction(title: "Clear Canvas", style: .destructive) { [weak canvasView] _ in
                     canvasView?.startNewCanvas()
                 })
+            case .brushSettings:
+                sheet.addAction(UIAlertAction(title: "Brush & Color…", style: .default) { [weak self] _ in
+                    self?.presentBrushSettings()
+                })
             }
         }
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -124,6 +134,18 @@ final class CanvasViewController: UIViewController {
         sheet.popoverPresentationController?.sourceView = view
         sheet.popoverPresentationController?.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
         present(sheet, animated: true)
+    }
+
+    /// The brush sheet: pick a pen (flat, oval, brush...), tweak its size and angle, choose an ink.
+    func presentBrushSettings() {
+        guard presentedViewController == nil else { return }
+        let hosting = UIHostingController(rootView: BrushSettingsView(settings: penSettings))
+        hosting.modalPresentationStyle = .pageSheet
+        if let sheet = hosting.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(hosting, animated: true)
     }
 
     /// Handy in the Simulator (which has no volume buttons): ⌘S saves, ⌘N starts a new canvas.
@@ -176,8 +198,17 @@ final class CanvasViewController: UIViewController {
         case .volumeDown:
             saveDrawing()
         case .volumeUp:
-            break // Not assigned yet.
+            cycleColor()
         }
+    }
+
+    // MARK: Ink
+
+    /// Moves to the next ink (Volume Up) and shows which one it is.
+    func cycleColor() {
+        let ink = penSettings.cycleColor()
+        selectionHaptics.selectionChanged()
+        toast.show(ink.name, swatch: UIColor(cgColor: ink.color.cgColor), in: view, duration: 1.2)
     }
 
     // MARK: Saving
