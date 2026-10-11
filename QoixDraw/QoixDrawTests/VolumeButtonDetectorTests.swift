@@ -56,6 +56,14 @@ final class VolumeButtonDetectorTests: XCTestCase {
         XCTAssertEqual(detector.ingest(0.1875), .down)
     }
 
+    func testVolumeUpCannotBeDetectedWhenTheVolumeIsAtMaximum() {
+        XCTAssertFalse(VolumeButtonDetector.canDetectUpPress(atVolume: 1))
+        XCTAssertFalse(VolumeButtonDetector.canDetectUpPress(atVolume: 0.98))
+        XCTAssertTrue(VolumeButtonDetector.canDetectUpPress(atVolume: 1 - VolumeButtonDetector.hardwareStep))
+        XCTAssertTrue(VolumeButtonDetector.canDetectUpPress(atVolume: 0.5))
+        XCTAssertTrue(VolumeButtonDetector.canDetectUpPress(atVolume: 0))
+    }
+
     func testVolumeDownCannotBeDetectedWhenTheVolumeIsAtZero() {
         XCTAssertFalse(VolumeButtonDetector.canDetectDownPress(atVolume: 0))
         XCTAssertTrue(VolumeButtonDetector.canDetectDownPress(atVolume: VolumeButtonDetector.hardwareStep))

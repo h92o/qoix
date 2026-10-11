@@ -27,6 +27,12 @@ struct VolumeButtonDetector {
         volume >= pressThreshold
     }
 
+    /// Whether pressing Volume Up at `volume` would change the volume enough to be noticed. At full volume it
+    /// cannot: the system has nowhere higher to go.
+    static func canDetectUpPress(atVolume volume: Float) -> Bool {
+        volume <= 1 - pressThreshold
+    }
+
     /// The level the volume is expected to rest at between presses.
     private(set) var baseline: Float
 

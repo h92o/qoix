@@ -79,13 +79,13 @@ extension BrushPreset {
     static let roundBrush = BrushPreset(
         name: "Brush", shape: .ellipse, lengthPoints: 9, thicknessPoints: 9, angleDegrees: 0,
         speedResponse: 0.85, minScale: 0.2, referenceSpeedPoints: 900, contactResponse: 0,
-        taperInPoints: 14, startScale: 0.3, taperOutPoints: 28, endScale: 0.05, smoothing: 0.7)
+        taperInPoints: 10, startScale: 0.3, taperOutPoints: 16, endScale: 0.05, smoothing: 0.7)
 
     /// A pointed pen: a fine round line that swells when you slow down and flicks out at the end.
     static let pointed = BrushPreset(
         name: "Pointed pen", shape: .ellipse, lengthPoints: 5.5, thicknessPoints: 5.5, angleDegrees: 0,
         speedResponse: 0.55, minScale: 0.35, referenceSpeedPoints: 900, contactResponse: 0,
-        taperInPoints: 8, startScale: 0.5, taperOutPoints: 14, endScale: 0.2, smoothing: 0.6)
+        taperInPoints: 6, startScale: 0.5, taperOutPoints: 10, endScale: 0.2, smoothing: 0.6)
 
     /// A plain round marker of constant width.
     static let marker = BrushPreset(

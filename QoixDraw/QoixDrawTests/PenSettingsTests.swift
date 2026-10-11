@@ -133,8 +133,8 @@ final class PenSettingsTests: XCTestCase {
     func testSpeedAndTaperDistancesScaleWithTheCanvasButRatiosDoNot() {
         let brush = BrushPreset.roundBrush.brush(color: .black, pixelsPerPoint: 2)
         XCTAssertEqual(brush.dynamics.referenceSpeed, 1800, accuracy: 1e-9)
-        XCTAssertEqual(brush.dynamics.taperIn, 28, accuracy: 1e-9)
-        XCTAssertEqual(brush.dynamics.taperOut, 56, accuracy: 1e-9)
+        XCTAssertEqual(brush.dynamics.taperIn, 20, accuracy: 1e-9)
+        XCTAssertEqual(brush.dynamics.taperOut, 32, accuracy: 1e-9)
         XCTAssertEqual(brush.dynamics.speedResponse, 0.85, accuracy: 1e-9)
         XCTAssertEqual(brush.dynamics.minScale, 0.2, accuracy: 1e-9)
         XCTAssertEqual(brush.dynamics.endScale, 0.05, accuracy: 1e-9)

@@ -19,6 +19,7 @@ final class CanvasViewController: UIViewController {
     private var isSaving = false
     private var lastSaveRequest = Date.distantPast
     private var hasShownLowVolumeHint = false
+    private var hasShownHighVolumeHint = false
     private var hasShownPhotosDeniedAlert = false
 
     init(saver: DrawingSaver = DrawingSaver(), penSettings: PenSettings = PenSettings()) {
@@ -92,8 +93,8 @@ final class CanvasViewController: UIViewController {
         canvasView?.history
     }
 
-    /// Shaking the phone opens a small menu: undo, redo, clear the canvas, or open the brush sheet. (Handled here
-    /// rather than by the system's shake-to-undo alert, which has no way to do the last two.)
+    /// Shaking the phone opens a small menu: save, undo, redo, clear the canvas, or open the brush sheet. (Handled
+    /// here rather than by the system's shake-to-undo alert, which only knows about undo and redo.)
     override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
         guard motion == .motionShake else {
             super.motionEnded(motion, with: event)
@@ -111,6 +112,10 @@ final class CanvasViewController: UIViewController {
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         for item in items {
             switch item {
+            case .save:
+                sheet.addAction(UIAlertAction(title: "Save to Photos", style: .default) { [weak self] _ in
+                    self?.saveDrawing()
+                })
             case .undo:
                 sheet.addAction(UIAlertAction(title: history.undoMenuItemTitle, style: .default) { _ in
                     history.undo()
@@ -148,17 +153,22 @@ final class CanvasViewController: UIViewController {
         present(hosting, animated: true)
     }
 
-    /// Handy in the Simulator (which has no volume buttons): ⌘S saves, ⌘N starts a new canvas.
+    /// For a hardware keyboard (and the UI tests): ⌘S saves, ⌘N starts a new canvas, ⌘B opens Brush & Color.
     override var keyCommands: [UIKeyCommand]? {
         [
             UIKeyCommand(title: "Save to Photos", action: #selector(saveCommand), input: "s", modifierFlags: .command),
             UIKeyCommand(title: "New Canvas", action: #selector(newCanvasCommand), input: "n", modifierFlags: .command),
+            UIKeyCommand(title: "Brush & Color", action: #selector(brushCommand), input: "b", modifierFlags: .command),
         ]
     }
 
     @objc private func saveCommand() {
         Self.log.debug("save requested by keyboard shortcut")
         saveDrawing()
+    }
+
+    @objc private func brushCommand() {
+        presentBrushSettings()
     }
 
     @objc private func newCanvasCommand() {
@@ -179,15 +189,20 @@ final class CanvasViewController: UIViewController {
 
     private func startListeningForVolumeButtons() {
         volumeObserver.start(attachedTo: view)
-        showLowVolumeHintIfNeeded()
+        showVolumeLimitHintIfNeeded()
     }
 
-    /// At zero volume, pressing Volume Down changes nothing, so the press can't be seen. Say so, once.
-    private func showLowVolumeHintIfNeeded() {
-        guard !hasShownLowVolumeHint,
-              !VolumeButtonDetector.canDetectDownPress(atVolume: volumeObserver.currentVolume) else { return }
-        hasShownLowVolumeHint = true
-        toast.show("Volume is at minimum. Raise it one notch so Volume Down can save.", in: view, duration: 4.5)
+    /// At zero volume, pressing Volume Down changes nothing, so the press can't be seen; the same goes for Volume
+    /// Up at full volume. Say so, once each.
+    private func showVolumeLimitHintIfNeeded() {
+        let volume = volumeObserver.currentVolume
+        if !hasShownLowVolumeHint, !VolumeButtonDetector.canDetectDownPress(atVolume: volume) {
+            hasShownLowVolumeHint = true
+            toast.show("Volume is at minimum. Raise it one notch so Volume Down can save.", in: view, duration: 4.5)
+        } else if !hasShownHighVolumeHint, !VolumeButtonDetector.canDetectUpPress(atVolume: volume) {
+            hasShownHighVolumeHint = true
+            toast.show("Volume is at maximum. Lower it one notch so Volume Up can change the ink.", in: view, duration: 4.5)
+        }
     }
 
     private func handleVolumeEvent(_ event: VolumeButtonObserver.Event) {

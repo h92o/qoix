@@ -500,9 +500,9 @@ final class ShakeMenuTests: XCTestCase {
         XCTAssertEqual(ShakeMenu.items(canUndo: false, canRedo: false, canClear: false), [.brushSettings])
     }
 
-    func testADrawingOffersUndoClearAndTheBrushSheet() {
+    func testADrawingOffersSaveUndoClearAndTheBrushSheet() {
         XCTAssertEqual(ShakeMenu.items(canUndo: true, canRedo: false, canClear: true),
-                       [.undo, .clearCanvas, .brushSettings])
+                       [.save, .undo, .clearCanvas, .brushSettings])
     }
 
     func testAfterUndoingEverythingRedoIsOfferedButClearIsNot() {
@@ -511,12 +511,21 @@ final class ShakeMenuTests: XCTestCase {
 
     func testEverythingAtOnce() {
         XCTAssertEqual(ShakeMenu.items(canUndo: true, canRedo: true, canClear: true),
-                       [.undo, .redo, .clearCanvas, .brushSettings])
+                       [.save, .undo, .redo, .clearCanvas, .brushSettings])
     }
 
     func testAfterSavingAndClearingTheOldDrawingCanBeBroughtBack() {
         // Saved -> canvas cleared: nothing to clear, but the clear itself can be undone.
         XCTAssertEqual(ShakeMenu.items(canUndo: true, canRedo: false, canClear: false), [.undo, .brushSettings])
+    }
+
+    func testSaveIsOfferedExactlyWhenThereIsSomethingOnTheCanvas() {
+        for undo in [false, true] {
+            for redo in [false, true] {
+                XCTAssertEqual(ShakeMenu.items(canUndo: undo, canRedo: redo, canClear: true).first, .save)
+                XCTAssertFalse(ShakeMenu.items(canUndo: undo, canRedo: redo, canClear: false).contains(.save))
+            }
+        }
     }
 
     func testTheBrushSheetIsAlwaysTheLastChoice() {

@@ -7,8 +7,9 @@ An iPhone app for **calligraphy with your finger**.
 - **Press Volume Down to save** the picture to your Photos.
 - **Press Volume Up to change the ink** (ink black, vermilion, indigo, sepia, forest, gold, white). A small swatch
   shows which one you are on.
-- **Shake the phone** for a menu: undo, redo, **Clear Canvas** (to throw a drawing away without saving it), and
-  **Brush & Color…**, the sheet where you choose and tune the pen. A three-finger swipe left/right is undo/redo too.
+- **Shake the phone** for a menu: **Save to Photos** (a second way to save, in case a volume button isn't an option),
+  undo, redo, **Clear Canvas** (to throw a drawing away without saving it), and **Brush & Color…**, the sheet where
+  you choose and tune the pen. A three-finger swipe left/right is undo/redo too.
 - Pictures are PNGs, never larger than **2000 × 2000 px**. The canvas takes the shape of your screen at the
   largest size allowed (about 923 × 2000 on a current iPhone). After a save the canvas clears for the next picture;
   undo brings a just-saved drawing back.
@@ -33,7 +34,7 @@ The built-in pens, in the order the sheet lists them:
 | Chisel 45° *(default)* | flat, 12 pt, hairline 1.2 pt, 45° | classic italic/gothic thick-thin |
 | Chisel 30° | flat, 12 pt, 30° | flatter, more horizontal thick strokes |
 | Oval 35° | oval 13 × 4 pt, 35° | softer thick-thin |
-| Brush | round, 9 pt | speed-sensitive, pointed start, long tail |
+| Brush | round, 9 pt | speed-sensitive, pointed start, short flick at the end |
 | Pointed pen | round, 5.5 pt | fine, swells when slow, flick at the end |
 | Marker | round, 4 pt | constant width |
 
@@ -67,8 +68,8 @@ You need a Mac with **Xcode 16 or newer** and an iPhone on **iOS 16 or newer**.
    profile under **Settings ▸ General ▸ VPN & Device Management**.
 4. Draw, then press Volume Down. Allow **Add Photos Only** when asked.
 
-The Simulator has no volume buttons, so there **⌘S saves**, ⌘N starts a new canvas, and ⌘Z undoes
-(Device ▸ Shake opens the shake menu).
+The Simulator has no volume buttons: use **Device ▸ Shake** and pick **Save to Photos** (or **Brush & Color…**).
+With a hardware keyboard attached, ⌘S saves, ⌘N starts a new canvas, ⌘B opens Brush & Color and ⌘Z undoes.
 
 **No Mac?** Every successful run of the GitHub Actions workflow also produces an *unsigned* `QoixDraw-unsigned.ipa`
 (Actions ▸ the latest green run ▸ Artifacts ▸ `QoixDraw-unsigned-ipa`). It can't be installed as it is: a sideloading
@@ -85,17 +86,18 @@ the volume back where it was. A hidden volume view keeps iOS from drawing its ow
 
 What that means in practice:
 
-- **If the volume is at zero, Volume Down can't be detected** (the system has nowhere lower to go). The app tells
-  you once and asks you to raise it one notch. It never changes your volume on its own. Volume Up works from zero.
+- **If the volume is at zero, Volume Down can't be detected, and at full volume Volume Up can't** (the system has
+  nowhere further to go). The app tells you once and asks you to move the volume one notch. It never changes your
+  volume on its own.
 - The volume is restored after each press, so repeated presses never drift it.
-- The Simulator can't change volume at all, hence ⌘S there.
+- The Simulator can't change volume at all, hence the shake menu's Save to Photos there.
 - It is a workaround, so it could be affected by a future iOS release. Apple may also not accept it in an App Store
   review. It is fine for your own phone and TestFlight-style testing.
 
 **If a button seems to do nothing**, set `showVolumePressMessages = true` in `AppConfig.swift` and run from
 Xcode. The app then shows "Volume Down detected" / "Volume Up detected" on every press, and the console (filter for
 `app.qoix.draw`) logs each volume reading it sees, which pinpoints whether the press was seen, ignored, or not
-reported at all.
+reported at all. Either way, **Save to Photos** in the shake menu always works.
 
 Where drawings go: **Photos** (add-only access, the app can't read your pictures). If Photos access is denied, the
 drawing is kept in the **Files** app instead (On My iPhone ▸ QOIX Draw) so nothing is ever lost.
@@ -103,10 +105,10 @@ drawing is kept in the **Files** app instead (On My iPhone ▸ QOIX Draw) so not
 ## Settings you may want to change
 
 - [`AppConfig.swift`](QoixDraw/AppConfig.swift): the pen a fresh install starts with, how far a finger must move
-  before it starts drawing (so a resting thumb never marks the canvas), how many fingers may write at once,
-  canvas background, whether the canvas clears after a save, and the canvas shape (screen-shaped by default; return `CanvasSpec(width: 2000, height: 2000)`
-  for a fixed square). The 2000 px ceiling itself lives in [`Canvas/CanvasSpec.swift`](QoixDraw/Canvas/CanvasSpec.swift),
-  the one place that enforces it.
+  before it starts drawing (so a resting thumb never marks the canvas), how many fingers may write at once, canvas
+  background, whether the canvas clears after a save, and the canvas shape (screen-shaped by default; return
+  `CanvasSpec(width: 2000, height: 2000)` for a fixed square). The 2000 px ceiling itself lives in
+  [`Canvas/CanvasSpec.swift`](QoixDraw/Canvas/CanvasSpec.swift), the one place that enforces it.
 - [`Brush/BrushPreset.swift`](QoixDraw/Brush/BrushPreset.swift): the built-in pens. Add your own by copying one and
   changing the numbers, then list it in `BrushPreset.all`.
 - [`Brush/Palette.swift`](QoixDraw/Brush/Palette.swift): the inks Volume Up steps through.
@@ -159,8 +161,9 @@ Nothing below is built yet; each one fits the current structure without a rewrit
 `xcodebuild test -project QoixDraw/QoixDraw.xcodeproj -scheme QoixDraw -destination 'platform=iOS Simulator,name=iPhone 17' CODE_SIGNING_ALLOWED=NO`
 runs the unit tests: the canvas size cap, the calligraphy engine (a flat nib really is hairline-thin along its edge
 and full width across it, speed and tapers behave, a live stroke and its replay are pixel-identical), pens and inks,
-touch handling, undo/redo, volume-press detection, and the whole save flow with a fake photo library. A UI test
-(`QoixDrawUITests`) launches the real app, draws a picture with touches, saves it with ⌘S and takes screenshots.
+touch handling, undo/redo, volume-press detection, and the whole save flow with a fake photo library. The UI
+tests (`QoixDrawUITests`) launch the real app, draw with touches (a house, and a "nib rose": lines in twelve
+directions, which shows the thick/thin effect), open the Brush & Color sheet, save with ⌘S and take screenshots.
 GitHub Actions runs all of it on every push that touches `QoixDraw/` (Xcode 26 and Xcode 16.4, see
 `.github/workflows/ios.yml`), plus an unsigned Release build for a real device, and keeps the screenshots as a
 downloadable build artifact.

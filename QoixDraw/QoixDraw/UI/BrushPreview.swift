@@ -56,10 +56,21 @@ struct BrushPreviewView: UIViewRepresentable {
         let view = UIImageView()
         view.contentMode = .scaleAspectFit
         view.backgroundColor = .white
+        view.clipsToBounds = true
+        // The image is much larger than the room it is shown in; it must never ask for that much room.
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        view.setContentHuggingPriority(.defaultLow, for: .vertical)
         return view
     }
 
     func updateUIView(_ view: UIImageView, context: Context) {
         view.image = BrushPreviewRenderer.image(for: preset, color: color)
+    }
+
+    /// Fills whatever room it is given.
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIImageView, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 360, height: proposal.height ?? 130)
     }
 }

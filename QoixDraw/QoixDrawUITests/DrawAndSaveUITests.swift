@@ -80,6 +80,39 @@ final class DrawAndSaveUITests: XCTestCase {
         snap("0-blank-canvas")
     }
 
+    /// Lines radiating from one point in twelve directions. With the default flat pen the thickness changes with
+    /// the direction (hairline along the pen's edge, broad across it), which the screenshot makes easy to see.
+    func testANibRoseShowsThickAndThinByDirection() throws {
+        let (_, canvas) = launchApp()
+        XCTAssertTrue(canvas.waitForExistence(timeout: 30), "the drawing canvas should be on screen")
+
+        let size = canvas.frame.size
+        let radius: CGFloat = 150 // points
+        let center = CGVector(dx: 0.5, dy: 0.45)
+        for index in 0..<12 {
+            let angle = CGFloat(index) / 12 * 2 * .pi
+            let end = (0.5 + radius * cos(angle) / size.width, 0.45 + radius * sin(angle) / size.height)
+            line(on: canvas, (center.dx, center.dy), end)
+        }
+        snap("5-nib-rose")
+    }
+
+    func testTheBrushSheetOpensAndCloses() throws {
+        let (app, canvas) = launchApp()
+        XCTAssertTrue(canvas.waitForExistence(timeout: 30), "the drawing canvas should be on screen")
+
+        app.typeKey("b", modifierFlags: .command)
+        let title = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Brush & Color'")).firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 30), "⌘B should open the Brush & Color sheet; \(describeScreen(of: app))")
+        snap("4-brush-sheet")
+
+        let done = app.buttons["Done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 10), "the sheet has a Done button; \(describeScreen(of: app))")
+        done.tap()
+        let gone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: done)
+        wait(for: [gone], timeout: 20)
+    }
+
     func testDrawAPictureThenSaveIt() throws {
         let (app, canvas) = launchApp()
         XCTAssertTrue(canvas.waitForExistence(timeout: 30), "the drawing canvas should be on screen")
