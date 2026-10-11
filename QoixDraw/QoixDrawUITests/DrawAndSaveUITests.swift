@@ -101,9 +101,16 @@ final class DrawAndSaveUITests: XCTestCase {
         let (app, canvas) = launchApp()
         XCTAssertTrue(canvas.waitForExistence(timeout: 30), "the drawing canvas should be on screen")
 
-        app.typeKey("b", modifierFlags: .command)
+        // The screen only starts answering key commands once it is on screen and has become first responder,
+        // which can lag behind the canvas appearing, so a key press that comes too early is simply lost. Press
+        // again until the sheet shows (pressing it again once it is open does nothing).
         let title = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Brush & Color'")).firstMatch
-        XCTAssertTrue(title.waitForExistence(timeout: 30), "⌘B should open the Brush & Color sheet; \(describeScreen(of: app))")
+        var opened = false
+        for _ in 0..<5 where !opened {
+            app.typeKey("b", modifierFlags: .command)
+            opened = title.waitForExistence(timeout: 8)
+        }
+        XCTAssertTrue(opened, "⌘B should open the Brush & Color sheet; \(describeScreen(of: app)); \(app.debugDescription.prefix(3000))")
         snap("4-brush-sheet")
 
         let done = app.buttons["Done"]
